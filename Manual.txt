@@ -1,0 +1,58 @@
+1. Check db connection
+
+node test-db.mjs
+
+2. Test Login:
+http://localhost:3000/api/auth/login 
+{
+  "email": "admin@lender.com",
+  "password": "admin123"
+}
+
+3. Check session cookie
+http://localhost:3000/api/auth/me with GET
+
+4. Invite Creation
+While logged in as:
+admin@lender.com
+
+http://localhost:3000/api/auth/invite with
+{
+  "email": "agent3@lender.com",
+  "role": "lender_agent"
+}
+
+5. Verify Invite - in invites
+
+6. Accept invites
+http://localhost:3000/api/auth/invite/<TOKEN>
+
+{
+  "name": "Agent Three",
+  "password": "agent123"
+}
+
+invite cant be reused
+{
+  "name": "Someone Else",
+  "password": "another123"
+} because of used: true
+
+7.Agent login
+http://localhost:3000/api/auth/login
+{
+  "email": "agent3@lender.com",
+  "password": "agent123"
+}
+
+8. Check leads 
+http://localhost:3000/api/leads
+
+9.Lead filters
+GET
+http://localhost:3000/api/leads?status=approved
+
+10.Role restriction
+agent cannot invite people
+
+11. Tenant isolation foundation
