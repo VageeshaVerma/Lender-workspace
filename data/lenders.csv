@@ -1,0 +1,6 @@
+lender_id,name,isActive,priority,flow,minAge,maxAge,minIncome,minCreditScore_exclusive,maxCreditScore_inclusive,employmentTypes,supportedPincodes,maxLeadsPerDay,preflight,leadOnly,minAppVersion,offerApproval,canShowProvisionalOffer
+ram-fincorp,Ram FinCorp,true,1,OTP,18,58,180000,550,999,salaried+self_employed,ALL,,disabled,,,,false
+mudraboxx,Mudraboxx,true,3,OTP,21,60,240000,500,999,salaried+self_employed,ALL,,disabled,,,,true
+creditsea-direct,CreditSea,true,4,OTP,20,55,180000,550,999,salaried+self_employed,ALL,,enabled,,,,true
+cashvia,Cashvia,true,5,OTP,21,58,240000,575,999,salaried+self_employed,ALL,,,,,,false
+smallpocket,Small Pocket,true,6,OTP,21,60,180000,500,999,salaried,ALL,,,,,,true

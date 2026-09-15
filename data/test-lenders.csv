@@ -1,0 +1,3 @@
+lender_id,name,isActive,priority,flow,minAge,maxAge,minIncome,minCreditScore_exclusive,maxCreditScore_inclusive,employmentTypes,supportedPincodes,maxLeadsPerDay,preflight,leadOnly,minAppVersion,offerApproval,canShowProvisionalOffer
+ram-fincorp,Ram FinCorp,true,1,OTP,18,58,180000,550,999,salaried+self_employed,ALL,,disabled,,,,false
+mudraboxx,Mudraboxx,true,3,OTP,21,60,240000,500,999,salaried+self_employed,ALL,,disabled,,,,true

@@ -6,12 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:leads": "tsx scripts/import-leads.ts",
+    "test:bre": "tsx scripts/test-bre.ts",
+    "test:lead-lenders": "tsx scripts/test-lead-lenders.ts",
+    "test:assignment": "tsx scripts/test-assignment.ts",
+    "reset:assignment": "tsx scripts/reset-assignment-counter.ts",
+    "process:leads": "tsx scripts/process-leads.ts",
+    "create:user": "tsx scripts/create-user.ts",
+    "test:lead-events": "tsx scripts/test-lead-events.ts",
+    "seed:lender-admins": "tsx scripts/seed-lender-admins.ts"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "csv-parse": "^7.0.2",
+    "dotenv": "^17.4.2",
+    "jose": "^6.2.12",
+    "lucide-react": "^0.577.0",
+    "mongodb": "^7.6.0",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }
