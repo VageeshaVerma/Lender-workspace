@@ -48,6 +48,19 @@ export async function GET(request: NextRequest) {
       searchParams.get("followUpDue") === "true";
 
     /*
+     * Assignment filter:
+     *
+     * all        -> assigned + unassigned
+     * assigned   -> only leads already assigned
+     * unassigned -> only leads not yet assigned
+     *
+     * The actual assignment information comes from
+     * the lead_lenders collection.
+     */
+    const assignmentStatus =
+      searchParams.get("assignmentStatus") || undefined;
+
+    /*
      * Only ops_admin should be able to select
      * a lender from the UI.
      *
@@ -77,6 +90,7 @@ export async function GET(request: NextRequest) {
       minAmount,
       maxAmount,
       followUpDue,
+      assignmentStatus,
       lenderId,
       page,
       limit,

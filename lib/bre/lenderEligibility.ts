@@ -1,4 +1,4 @@
-type Lead = {
+export type Lead = {
   _id?: any;
   sourceLeadId?: string;
   borrowerName: string;
@@ -6,10 +6,17 @@ type Lead = {
   loanAmount: number | null;
   loanPurpose: string | null;
   dateOfBirth: Date | null;
+  gender?: string | null;
   employmentType: string | null;
   income: number | null;
   creditScore: number | null;
   pincode: string | null;
+  city?: string | null;
+  state?: string | null;
+  status?: string;
+  followUpDate?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export type Lender = {

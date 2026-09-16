@@ -29,10 +29,6 @@ export async function deleteLenderCompletely(
   const leadEventsCollection =
     db.collection("lead_events");
 
-  // --------------------------------------------------
-  // 1. Make sure lender exists
-  // --------------------------------------------------
-
   const lender = await lendersCollection.findOne({
     lender_id: lenderId,
   });
@@ -40,10 +36,6 @@ export async function deleteLenderCompletely(
   if (!lender) {
     throw new Error("LENDER_NOT_FOUND");
   }
-
-  // --------------------------------------------------
-  // 2. Find all lender users
-  // --------------------------------------------------
 
   const lenderUsers = await usersCollection
     .find(
@@ -56,45 +48,26 @@ export async function deleteLenderCompletely(
     (user) => user._id
   );
 
-  // --------------------------------------------------
-  // 3. Delete lender-specific users
-  // --------------------------------------------------
-
   const usersResult =
     await usersCollection.deleteMany({
       lenderId,
     });
 
-  // --------------------------------------------------
-  // 4. Delete lead-lender relationships
-  // --------------------------------------------------
 
   const leadLendersResult =
     await leadLendersCollection.deleteMany({
       lenderId,
     });
 
-  // --------------------------------------------------
-  // 5. Delete lender-specific loan offers
-  // --------------------------------------------------
-
   const loanOffersResult =
     await loanOffersCollection.deleteMany({
       lenderId,
     });
 
-  // --------------------------------------------------
-  // 6. Delete assignment counter
-  // --------------------------------------------------
-
   const assignmentCounterResult =
     await assignmentCountersCollection.deleteOne({
       lenderId,
     });
-
-  // --------------------------------------------------
-  // 7. Delete lender-related events
-  // --------------------------------------------------
 
   const leadEventsFilter: Record<string, unknown> = {
     lenderId,
@@ -111,9 +84,6 @@ export async function deleteLenderCompletely(
       leadEventsFilter
     );
 
-  // --------------------------------------------------
-  // 8. Finally delete the lender
-  // --------------------------------------------------
 
   const lenderResult =
     await lendersCollection.deleteOne({

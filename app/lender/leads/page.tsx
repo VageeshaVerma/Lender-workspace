@@ -53,6 +53,12 @@ const statuses = [
   "disbursed",
 ];
 
+const assignmentStatuses = [
+  "all",
+  "unassigned",
+  "assigned",
+];
+
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -89,6 +95,8 @@ export default function LenderLeadsPage() {
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [assignmentStatus, setAssignmentStatus] =
+    useState("all");
 
   const [followUpDue, setFollowUpDue] = useState(false);
 
@@ -109,6 +117,18 @@ export default function LenderLeadsPage() {
   const [exportError, setExportError] = useState("");
 
   // --------------------------------------------------
+  // ASSIGNMENT STATE
+  // --------------------------------------------------
+
+  const [selectedLeadIds, setSelectedLeadIds] =
+    useState<string[]>([]);
+
+  const [assigning, setAssigning] = useState(false);
+
+  const [assignError, setAssignError] = useState("");
+  const [assignSuccess, setAssignSuccess] = useState("");
+
+  // --------------------------------------------------
   // BUILD FILTER PARAMETERS
   // --------------------------------------------------
 
@@ -126,6 +146,13 @@ export default function LenderLeadsPage() {
 
     if (status !== "all") {
       params.set("status", status);
+    }
+
+    if (assignmentStatus !== "all") {
+      params.set(
+        "assignmentStatus",
+        assignmentStatus
+      );
     }
 
     if (followUpDue) {
@@ -173,6 +200,13 @@ export default function LenderLeadsPage() {
         params.set("status", status);
       }
 
+      if (assignmentStatus !== "all") {
+        params.set(
+          "assignmentStatus",
+          assignmentStatus
+        );
+      }
+
       if (followUpDue) {
         params.set("followUpDue", "true");
       }
@@ -211,10 +245,21 @@ export default function LenderLeadsPage() {
         throw new Error("Failed to load leads");
       }
 
-      const data: LeadsResponse = await response.json();
+      const data: LeadsResponse =
+        await response.json();
 
       setLeads(data.leads);
       setPagination(data.pagination);
+
+      // Remove selected IDs that are no longer
+      // available after filtering/pagination.
+      setSelectedLeadIds((current) =>
+        current.filter((id) =>
+          data.leads.some(
+            (lead) => lead.leadId === id
+          )
+        )
+      );
     } catch (err) {
       console.error(err);
 
@@ -235,7 +280,7 @@ export default function LenderLeadsPage() {
 
     // We intentionally load the initial queue once.
     // Filter changes are handled explicitly through
-    // the Search button / checkbox / date / amount filters.
+    // the Search button / filters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -243,8 +288,17 @@ export default function LenderLeadsPage() {
   // SEARCH / APPLY FILTERS
   // --------------------------------------------------
 
-  function handleSearch(event: React.FormEvent) {
+  function handleSearch(
+    event: React.FormEvent
+  ) {
     event.preventDefault();
+
+    // Clear old selection because the lead list
+    // is changing.
+    setSelectedLeadIds([]);
+
+    setAssignError("");
+    setAssignSuccess("");
 
     fetchLeads(1);
   }
@@ -256,16 +310,191 @@ export default function LenderLeadsPage() {
   function handleClearFilters() {
     setSearch("");
     setStatus("all");
+    setAssignmentStatus("all");
+
     setFollowUpDue(false);
+
     setFromDate("");
     setToDate("");
+
     setMinAmount("");
     setMaxAmount("");
+
+    setSelectedLeadIds([]);
+
+    setAssignError("");
+    setAssignSuccess("");
 
     // Fetch directly with empty filters.
     setTimeout(() => {
       fetchLeads(1);
     }, 0);
+  }
+
+  // --------------------------------------------------
+  // SELECT / DESELECT LEAD
+  // --------------------------------------------------
+
+  function toggleLeadSelection(
+    leadId: string
+  ) {
+    setAssignError("");
+    setAssignSuccess("");
+
+    setSelectedLeadIds((current) => {
+      if (current.includes(leadId)) {
+        return current.filter(
+          (id) => id !== leadId
+        );
+      }
+
+      return [...current, leadId];
+    });
+  }
+
+  // --------------------------------------------------
+  // SELECT ALL UNASSIGNED LEADS ON CURRENT PAGE
+  // --------------------------------------------------
+
+  function toggleSelectAll() {
+    setAssignError("");
+    setAssignSuccess("");
+
+    const unassignedLeadIds = leads
+      .filter(
+        (lead) =>
+          lead.assignmentStatus ===
+          "unassigned"
+      )
+      .map((lead) => lead.leadId);
+
+    if (unassignedLeadIds.length === 0) {
+      return;
+    }
+
+    const allSelected =
+      unassignedLeadIds.every((id) =>
+        selectedLeadIds.includes(id)
+      );
+
+    if (allSelected) {
+      setSelectedLeadIds((current) =>
+        current.filter(
+          (id) =>
+            !unassignedLeadIds.includes(id)
+        )
+      );
+    } else {
+      setSelectedLeadIds((current) => [
+        ...new Set([
+          ...current,
+          ...unassignedLeadIds,
+        ]),
+      ]);
+    }
+  }
+
+  // --------------------------------------------------
+  // CHECK WHETHER ALL UNASSIGNED CURRENT-PAGE
+  // LEADS ARE SELECTED
+  // --------------------------------------------------
+
+  const selectableLeadIds = leads
+    .filter(
+      (lead) =>
+        lead.assignmentStatus ===
+        "unassigned"
+    )
+    .map((lead) => lead.leadId);
+
+  const allSelectableSelected =
+    selectableLeadIds.length > 0 &&
+    selectableLeadIds.every((id) =>
+      selectedLeadIds.includes(id)
+    );
+
+  // --------------------------------------------------
+  // BULK ASSIGN SELECTED LEADS
+  // --------------------------------------------------
+
+  async function handleAssignSelected() {
+    if (selectedLeadIds.length === 0) {
+      return;
+    }
+
+    try {
+      setAssigning(true);
+      setAssignError("");
+      setAssignSuccess("");
+
+      const response = await fetch(
+        "/api/leads/assign",
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            leadIds: selectedLeadIds,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Failed to assign selected leads"
+        );
+      }
+
+      const assignedCount =
+        data?.summary?.assigned ?? 0;
+
+      const skippedCount =
+        data?.summary?.skipped ?? 0;
+
+      if (skippedCount > 0) {
+        setAssignSuccess(
+          `${assignedCount} lead${
+            assignedCount === 1 ? "" : "s"
+          } assigned successfully. ${skippedCount} skipped.`
+        );
+      } else {
+        setAssignSuccess(
+          `${assignedCount} lead${
+            assignedCount === 1 ? "" : "s"
+          } assigned successfully.`
+        );
+      }
+
+      // Clear selected leads after assignment.
+      setSelectedLeadIds([]);
+
+      // Refresh the queue so that the latest
+      // assignment state is displayed.
+      await fetchLeads(pagination.page);
+    } catch (err) {
+      console.error(
+        "Assign selected leads error:",
+        err
+      );
+
+      setAssignError(
+        err instanceof Error
+          ? err.message
+          : "Unable to assign selected leads."
+      );
+    } finally {
+      setAssigning(false);
+    }
   }
 
   // --------------------------------------------------
@@ -293,18 +522,23 @@ export default function LenderLeadsPage() {
       }
 
       if (!response.ok) {
-        const data = await response.json().catch(() => null);
+        const data = await response
+          .json()
+          .catch(() => null);
 
         throw new Error(
-          data?.error || "Failed to export leads"
+          data?.error ||
+            "Failed to export leads"
         );
       }
 
       const blob = await response.blob();
 
-      const url = window.URL.createObjectURL(blob);
+      const url =
+        window.URL.createObjectURL(blob);
 
-      const link = document.createElement("a");
+      const link =
+        document.createElement("a");
 
       link.href = url;
       link.download = "leads.csv";
@@ -338,13 +572,20 @@ export default function LenderLeadsPage() {
       return;
     }
 
+    setSelectedLeadIds([]);
+
     fetchLeads(pagination.page - 1);
   }
 
   function handleNext() {
-    if (pagination.page >= pagination.totalPages) {
+    if (
+      pagination.page >=
+      pagination.totalPages
+    ) {
       return;
     }
+
+    setSelectedLeadIds([]);
 
     fetchLeads(pagination.page + 1);
   }
@@ -358,6 +599,7 @@ export default function LenderLeadsPage() {
       <div className="mx-auto max-w-7xl">
 
         {/* Header */}
+
         <div className="mb-6">
           <Link
             href="/lender"
@@ -388,17 +630,19 @@ export default function LenderLeadsPage() {
         </div>
 
         {/* Filters */}
-        <section className="mb-6 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-5">
 
+        <section className="mb-6 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-5">
           <form
             onSubmit={handleSearch}
             className="space-y-5"
           >
 
-            {/* Search + Status */}
-            <div className="grid gap-4 lg:grid-cols-[1fr_200px]">
+            {/* Search + Status + Assignment */}
+
+            <div className="grid gap-4 lg:grid-cols-[1fr_200px_200px]">
 
               {/* Search */}
+
               <div>
                 <label
                   htmlFor="search"
@@ -420,6 +664,7 @@ export default function LenderLeadsPage() {
               </div>
 
               {/* Status */}
+
               <div>
                 <label
                   htmlFor="status"
@@ -448,9 +693,47 @@ export default function LenderLeadsPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Assignment Status */}
+
+              <div>
+                <label
+                  htmlFor="assignmentStatus"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Assignment
+                </label>
+
+                <select
+                  id="assignmentStatus"
+                  value={assignmentStatus}
+                  onChange={(event) =>
+                    setAssignmentStatus(
+                      event.target.value
+                    )
+                  }
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                >
+                  {assignmentStatuses.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item === "all"
+                          ? "All leads"
+                          : item === "assigned"
+                          ? "Assigned"
+                          : "Unassigned"}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
             </div>
 
             {/* Date filters */}
+
             <div>
               <p className="mb-2 text-sm font-medium text-slate-700">
                 Application date
@@ -459,6 +742,7 @@ export default function LenderLeadsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
 
                 {/* From Date */}
+
                 <div>
                   <label
                     htmlFor="fromDate"
@@ -472,13 +756,16 @@ export default function LenderLeadsPage() {
                     type="date"
                     value={fromDate}
                     onChange={(event) =>
-                      setFromDate(event.target.value)
+                      setFromDate(
+                        event.target.value
+                      )
                     }
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
                   />
                 </div>
 
                 {/* To Date */}
+
                 <div>
                   <label
                     htmlFor="toDate"
@@ -493,7 +780,9 @@ export default function LenderLeadsPage() {
                     value={toDate}
                     min={fromDate || undefined}
                     onChange={(event) =>
-                      setToDate(event.target.value)
+                      setToDate(
+                        event.target.value
+                      )
                     }
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
                   />
@@ -502,6 +791,7 @@ export default function LenderLeadsPage() {
             </div>
 
             {/* Amount filters */}
+
             <div>
               <p className="mb-2 text-sm font-medium text-slate-700">
                 Loan amount
@@ -510,6 +800,7 @@ export default function LenderLeadsPage() {
               <div className="grid gap-4 sm:grid-cols-2">
 
                 {/* Minimum amount */}
+
                 <div>
                   <label
                     htmlFor="minAmount"
@@ -524,7 +815,9 @@ export default function LenderLeadsPage() {
                     min="0"
                     value={minAmount}
                     onChange={(event) =>
-                      setMinAmount(event.target.value)
+                      setMinAmount(
+                        event.target.value
+                      )
                     }
                     placeholder="e.g. 50000"
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
@@ -532,6 +825,7 @@ export default function LenderLeadsPage() {
                 </div>
 
                 {/* Maximum amount */}
+
                 <div>
                   <label
                     htmlFor="maxAmount"
@@ -546,7 +840,9 @@ export default function LenderLeadsPage() {
                     min="0"
                     value={maxAmount}
                     onChange={(event) =>
-                      setMaxAmount(event.target.value)
+                      setMaxAmount(
+                        event.target.value
+                      )
                     }
                     placeholder="e.g. 500000"
                     className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
@@ -556,13 +852,16 @@ export default function LenderLeadsPage() {
             </div>
 
             {/* Follow-up */}
+
             <div className="flex items-center">
               <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   checked={followUpDue}
                   onChange={(event) =>
-                    setFollowUpDue(event.target.checked)
+                    setFollowUpDue(
+                      event.target.checked
+                    )
                   }
                   className="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-400"
                 />
@@ -572,6 +871,7 @@ export default function LenderLeadsPage() {
             </div>
 
             {/* Filter buttons */}
+
             <div className="flex flex-col gap-3 border-t border-slate-200/60 pt-5 sm:flex-row">
 
               <button
@@ -596,8 +896,8 @@ export default function LenderLeadsPage() {
           </form>
 
           {/* Export */}
-          <div className="mt-5 flex flex-col gap-3 border-t border-slate-200/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
 
+          <div className="mt-5 flex flex-col gap-3 border-t border-slate-200/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-800">
                 Export leads
@@ -622,20 +922,24 @@ export default function LenderLeadsPage() {
         </section>
 
         {/* Export Error */}
+
         {exportError && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {exportError}
           </div>
         )}
 
-        {/* Error */}
+        {/* General Error */}
+
         {error && (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {error}
 
             <button
               type="button"
-              onClick={() => fetchLeads(pagination.page)}
+              onClick={() =>
+                fetchLeads(pagination.page)
+              }
               className="ml-2 font-semibold underline"
             >
               Retry
@@ -643,7 +947,24 @@ export default function LenderLeadsPage() {
           </div>
         )}
 
+        {/* Assignment Error */}
+
+        {assignError && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            {assignError}
+          </div>
+        )}
+
+        {/* Assignment Success */}
+
+        {assignSuccess && (
+          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+            {assignSuccess}
+          </div>
+        )}
+
         {/* Loading */}
+
         {loading && (
           <div className="grid gap-4">
             {[1, 2, 3].map((item) => (
@@ -662,11 +983,11 @@ export default function LenderLeadsPage() {
         )}
 
         {/* Empty */}
+
         {!loading &&
           !error &&
           leads.length === 0 && (
             <div className="rounded-2xl border border-white/60 bg-white/70 p-10 text-center shadow-sm backdrop-blur">
-
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-xl">
                 📋
               </div>
@@ -689,103 +1010,228 @@ export default function LenderLeadsPage() {
             </div>
           )}
 
+        {/* Lead Selection Toolbar */}
+
+        {!loading && leads.length > 0 && (
+          <section className="mb-4 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  {selectedLeadIds.length} lead
+                  {selectedLeadIds.length === 1
+                    ? ""
+                    : "s"} selected
+                </p>
+
+                <p className="mt-1 text-xs text-slate-500">
+                  Select eligible leads and assign them to
+                  agents using round robin.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  disabled={
+                    selectableLeadIds.length === 0 ||
+                    assigning
+                  }
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {allSelectableSelected
+                    ? "Deselect All"
+                    : "Select All"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAssignSelected}
+                  disabled={
+                    selectedLeadIds.length === 0 ||
+                    assigning
+                  }
+                  className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {assigning
+                    ? "Assigning..."
+                    : `Assign Selected${
+                        selectedLeadIds.length > 0
+                          ? ` (${selectedLeadIds.length})`
+                          : ""
+                      }`}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Lead cards */}
+
         {!loading && leads.length > 0 && (
           <section className="grid gap-4">
-            {leads.map((lead) => (
-              <Link
-                key={lead._id}
-                href={`/lender/leads/${lead.leadId}`}
-                className="block rounded-2xl border border-white/60 bg-white/70 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex flex-col gap-4">
+            {leads.map((lead) => {
+              const isAssigned =
+                lead.assignmentStatus !==
+                "unassigned";
 
-                  {/* Main information */}
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              const isSelected =
+                selectedLeadIds.includes(
+                  lead.leadId
+                );
 
-                    <div>
-                      <h2 className="text-lg font-bold text-slate-900">
-                        {lead.borrower.borrowerName}
-                      </h2>
+              return (
+                <div
+                  key={lead._id}
+                  className={`rounded-2xl border border-white/60 bg-white/70 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:shadow-md ${
+                    isSelected
+                      ? "ring-2 ring-rose-200"
+                      : ""
+                  }`}
+                >
+                  <div className="flex gap-4">
 
-                      <p className="mt-1 text-sm text-slate-500">
-                        {lead.borrower.phone}
-                      </p>
+                    {/* Selection checkbox */}
 
-                      <p className="mt-2 text-sm text-slate-600">
-                        {lead.borrower.loanPurpose}
-                      </p>
-                    </div>
-
-                    <div className="sm:text-right">
-                      <p className="text-lg font-bold text-slate-900">
-                        {formatCurrency(
-                          lead.borrower.loanAmount
-                        )}
-                      </p>
-
-                      <span className="mt-2 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold capitalize text-rose-600">
-                        {formatStatus(lead.status)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="flex flex-wrap gap-2 border-t border-slate-200/60 pt-3">
-
-                    {lead.borrower.creditScore !== undefined && (
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                        Credit {lead.borrower.creditScore}
-                      </span>
+                    {!isAssigned && (
+                      <div className="pt-1">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() =>
+                            toggleLeadSelection(
+                              lead.leadId
+                            )
+                          }
+                          disabled={assigning}
+                          aria-label={`Select ${lead.borrower.borrowerName}`}
+                          className="h-5 w-5 cursor-pointer rounded border-slate-300 text-rose-500 focus:ring-rose-400 disabled:cursor-not-allowed"
+                        />
+                      </div>
                     )}
 
-                    {lead.borrower.city && (
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                        {lead.borrower.city}
-                      </span>
-                    )}
+                    {/* Card content */}
 
-                    {lead.assignmentStatus && (
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs capitalize text-slate-600">
-                        {formatStatus(
-                          lead.assignmentStatus
-                        )}
-                      </span>
-                    )}
-
-                    {lead.followUpDate && (
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs ${
-                          new Date(lead.followUpDate) <=
-                          new Date()
-                            ? "bg-red-50 text-red-600"
-                            : "bg-amber-50 text-amber-600"
-                        }`}
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={`/lender/leads/${lead.leadId}`}
+                        className="block"
                       >
-                        Follow-up{" "}
-                        {formatDate(lead.followUpDate)}
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Footer */}
-                  <div className="flex items-center justify-between border-t border-slate-200/60 pt-3 text-xs text-slate-500">
+                        {/* Main information */}
 
-                    <span>
-                      Applied {formatDate(lead.createdAt)}
-                    </span>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 
-                    <span className="font-semibold text-rose-500">
-                      View details →
-                    </span>
+                          <div>
+                            <h2 className="text-lg font-bold text-slate-900">
+                              {lead.borrower.borrowerName}
+                            </h2>
+
+                            <p className="mt-1 text-sm text-slate-500">
+                              {lead.borrower.phone}
+                            </p>
+
+                            <p className="mt-2 text-sm text-slate-600">
+                              {lead.borrower.loanPurpose}
+                            </p>
+                          </div>
+
+                          <div className="sm:text-right">
+                            <p className="text-lg font-bold text-slate-900">
+                              {formatCurrency(
+                                lead.borrower.loanAmount
+                              )}
+                            </p>
+
+                            <span className="mt-2 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold capitalize text-rose-600">
+                              {formatStatus(
+                                lead.status
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Metadata */}
+
+                        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200/60 pt-3">
+
+                          {lead.borrower.creditScore !==
+                            undefined && (
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                              Credit{" "}
+                              {
+                                lead.borrower
+                                  .creditScore
+                              }
+                            </span>
+                          )}
+
+                          {lead.borrower.city && (
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                              {lead.borrower.city}
+                            </span>
+                          )}
+
+                          {lead.assignmentStatus && (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs capitalize ${
+                                lead.assignmentStatus ===
+                                "unassigned"
+                                  ? "bg-amber-50 text-amber-600"
+                                  : "bg-emerald-50 text-emerald-600"
+                              }`}
+                            >
+                              {formatStatus(
+                                lead.assignmentStatus
+                              )}
+                            </span>
+                          )}
+
+                          {lead.followUpDate && (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs ${
+                                new Date(
+                                  lead.followUpDate
+                                ) <= new Date()
+                                  ? "bg-red-50 text-red-600"
+                                  : "bg-amber-50 text-amber-600"
+                              }`}
+                            >
+                              Follow-up{" "}
+                              {formatDate(
+                                lead.followUpDate
+                              )}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Footer */}
+
+                        <div className="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-3 text-xs text-slate-500">
+                          <span>
+                            Applied{" "}
+                            {formatDate(
+                              lead.createdAt
+                            )}
+                          </span>
+
+                          <span className="font-semibold text-rose-500">
+                            View details →
+                          </span>
+                        </div>
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </Link>
-            ))}
+              );
+            })}
           </section>
         )}
 
         {/* Pagination */}
+
         {!loading &&
           pagination.totalPages > 0 && (
             <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur">
@@ -793,7 +1239,10 @@ export default function LenderLeadsPage() {
               <button
                 type="button"
                 onClick={handlePrevious}
-                disabled={pagination.page <= 1}
+                disabled={
+                  pagination.page <= 1 ||
+                  assigning
+                }
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 ← Previous
@@ -809,7 +1258,8 @@ export default function LenderLeadsPage() {
                 onClick={handleNext}
                 disabled={
                   pagination.page >=
-                  pagination.totalPages
+                    pagination.totalPages ||
+                  assigning
                 }
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
