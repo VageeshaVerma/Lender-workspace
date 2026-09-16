@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
+
 import { getLeadsForUser } from "@/lib/db/leads";
 
 function parseNumber(value: string | null) {
@@ -36,6 +37,20 @@ export async function GET(request: NextRequest) {
     const toDate =
       searchParams.get("toDate") || undefined;
 
+    // --------------------------------------------------
+    // Location filters
+    // --------------------------------------------------
+
+    const pincode =
+      searchParams.get("pincode") || undefined;
+
+    const city =
+      searchParams.get("city") || undefined;
+
+    // --------------------------------------------------
+    // Loan amount filters
+    // --------------------------------------------------
+
     const minAmount = parseNumber(
       searchParams.get("minAmount")
     );
@@ -44,28 +59,54 @@ export async function GET(request: NextRequest) {
       searchParams.get("maxAmount")
     );
 
+    // --------------------------------------------------
+    // Age filters
+    // --------------------------------------------------
+
+    const minAge = parseNumber(
+      searchParams.get("minAge")
+    );
+
+    const maxAge = parseNumber(
+      searchParams.get("maxAge")
+    );
+
+    // --------------------------------------------------
+    // Income filters
+    // --------------------------------------------------
+
+    const minIncome = parseNumber(
+      searchParams.get("minIncome")
+    );
+
+    const maxIncome = parseNumber(
+      searchParams.get("maxIncome")
+    );
+
     const followUpDue =
       searchParams.get("followUpDue") === "true";
 
-    /*
-     * Assignment filter:
-     *
-     * all        -> assigned + unassigned
-     * assigned   -> only leads already assigned
-     * unassigned -> only leads not yet assigned
-     *
-     * The actual assignment information comes from
-     * the lead_lenders collection.
-     */
+    // --------------------------------------------------
+    // Assignment filter:
+    //
+    // all        -> assigned + unassigned
+    // assigned   -> only leads already assigned
+    // unassigned -> only leads not yet assigned
+    //
+    // The actual assignment information comes from
+    // the lead_lenders collection.
+    // --------------------------------------------------
+
     const assignmentStatus =
       searchParams.get("assignmentStatus") || undefined;
 
-    /*
-     * Only ops_admin should be able to select
-     * a lender from the UI.
-     *
-     * getLeadsForUser still enforces this on the server.
-     */
+    // --------------------------------------------------
+    // Only ops_admin should be able to select
+    // a lender from the UI.
+    //
+    // getLeadsForUser still enforces this on the server.
+    // --------------------------------------------------
+
     const lenderId =
       searchParams.get("lenderId") || undefined;
 
@@ -82,23 +123,45 @@ export async function GET(request: NextRequest) {
       100
     );
 
-    const result = await getLeadsForUser(session, {
-      status,
-      search,
-      fromDate,
-      toDate,
-      minAmount,
-      maxAmount,
-      followUpDue,
-      assignmentStatus,
-      lenderId,
-      page,
-      limit,
-    });
+    const result = await getLeadsForUser(
+      session,
+      {
+        status,
+        search,
+        fromDate,
+        toDate,
+
+        // Location filters
+        pincode,
+        city,
+
+        // Existing numerical filter
+        minAmount,
+        maxAmount,
+
+        // Age filters
+        minAge,
+        maxAge,
+
+        // Income filters
+        minIncome,
+        maxIncome,
+
+        followUpDue,
+        assignmentStatus,
+        lenderId,
+
+        page,
+        limit,
+      }
+    );
 
     return Response.json(result);
   } catch (error) {
-    console.error("GET /api/leads error:", error);
+    console.error(
+      "GET /api/leads error:",
+      error
+    );
 
     return Response.json(
       { error: "Failed to fetch leads" },

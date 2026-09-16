@@ -1,5 +1,4 @@
 import clientPromise from "./mongodb";
-
 import { Document } from "mongodb";
 
 import { SessionPayload } from "../auth/session";
@@ -15,6 +14,10 @@ export type LeadFilters = {
   search?: string;
   lenderId?: string;
 
+  // Location filters
+  pincode?: string;
+  city?: string;
+
   page?: number;
   limit?: number;
 
@@ -23,11 +26,68 @@ export type LeadFilters = {
   fromDate?: string;
   toDate?: string;
 
+  // Loan amount filters
   minAmount?: number;
   maxAmount?: number;
 
+  // Age filters
+  minAge?: number;
+  maxAge?: number;
+
+  // Income filters
+  minIncome?: number;
+  maxIncome?: number;
+
+  // Assignment filter
   assignmentStatus?: string;
 };
+
+/**
+ * Calculate age from date of birth.
+ *
+ * We do not store age in the leads collection because
+ * age changes over time.
+ *
+ * dateOfBirth is the source of truth.
+ */
+function calculateAge(dateOfBirth: Date | null) {
+  if (!dateOfBirth) {
+    return null;
+  }
+
+  const today = new Date();
+
+  let age =
+    today.getFullYear() -
+    dateOfBirth.getFullYear();
+
+  const monthDifference =
+    today.getMonth() -
+    dateOfBirth.getMonth();
+
+  if (
+    monthDifference < 0 ||
+    (monthDifference === 0 &&
+      today.getDate() < dateOfBirth.getDate())
+  ) {
+    age--;
+  }
+
+  return age;
+}
+
+/**
+ * Escape user input before using it inside MongoDB regex.
+ *
+ * Without this, characters such as ., *, +, ?, etc.
+ * can behave as regex operators.
+ */
+function escapeRegex(value: string) {
+  return value.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+}
 
 export async function getLeadsForUser(
   session: SessionPayload,
@@ -63,9 +123,9 @@ export async function getLeadsForUser(
       );
     }
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Get current lender
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     const lender = await db
       .collection("lenders")
@@ -74,22 +134,20 @@ export async function getLeadsForUser(
       });
 
     if (!lender) {
-      throw new Error("Lender not found");
+      throw new Error(
+        "Lender not found"
+      );
     }
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Convert DB lender into BRE Lender type
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     const lenderRules: Lender = {
       lender_id: lender.lender_id,
-
       name: lender.name,
-
       isActive: lender.isActive,
-
-      priority:
-        lender.priority ?? 0,
+      priority: lender.priority ?? 0,
 
       minAge:
         lender.minAge ?? null,
@@ -101,29 +159,25 @@ export async function getLeadsForUser(
         lender.minIncome ?? null,
 
       minCreditScore_exclusive:
-        lender.minCreditScore_exclusive ??
-        null,
+        lender.minCreditScore_exclusive ?? null,
 
       maxCreditScore_inclusive:
-        lender.maxCreditScore_inclusive ??
-        null,
+        lender.maxCreditScore_inclusive ?? null,
 
       employmentTypes:
-        typeof lender.employmentTypes ===
-        "string"
+        typeof lender.employmentTypes === "string"
           ? lender.employmentTypes
           : null,
 
       supportedPincodes:
-        typeof lender.supportedPincodes ===
-        "string"
+        typeof lender.supportedPincodes === "string"
           ? lender.supportedPincodes
           : null,
     };
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Get master leads
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     const leads = await db
       .collection("leads")
@@ -133,9 +187,12 @@ export async function getLeadsForUser(
       })
       .toArray();
 
-    // --------------------------------------------------
-    // Keep only leads eligible for this lender
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Run BRE
+    //
+    // Only leads eligible for this lender
+    // enter the lender's queue.
+    // -------------------------------------------------------
 
     let eligibleLeads = leads.filter(
       (lead) => {
@@ -149,30 +206,263 @@ export async function getLeadsForUser(
       }
     );
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Location filters
+    // -------------------------------------------------------
+
+    if (filters.pincode?.trim()) {
+      const requestedPincode =
+        filters.pincode.trim();
+
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.pincode?.trim() ===
+            requestedPincode
+        );
+    }
+
+    if (filters.city?.trim()) {
+      const requestedCity =
+        filters.city
+          .trim()
+          .toLowerCase();
+
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.city
+              ?.trim()
+              .toLowerCase()
+              .includes(requestedCity)
+        );
+    }
+
+    // -------------------------------------------------------
+    // Status filter
+    // -------------------------------------------------------
+
+    if (
+      filters.status &&
+      filters.status !== "all"
+    ) {
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.status ===
+            filters.status
+        );
+    }
+
+    // -------------------------------------------------------
+    // Search filter
+    // -------------------------------------------------------
+
+    if (filters.search?.trim()) {
+      const search =
+        filters.search.trim().toLowerCase();
+
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) => {
+            const borrowerName =
+              lead.borrowerName
+                ?.toLowerCase() ?? "";
+
+            const phone =
+              lead.phone ?? "";
+
+            return (
+              borrowerName.includes(search) ||
+              phone.includes(search)
+            );
+          }
+        );
+    }
+
+    // -------------------------------------------------------
+    // Follow-up filter
+    // -------------------------------------------------------
+
+    if (filters.followUpDue) {
+      const now = new Date();
+
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.followUpDate &&
+            new Date(
+              lead.followUpDate
+            ) <= now
+        );
+    }
+
+    // -------------------------------------------------------
+    // From date
+    // -------------------------------------------------------
+
+    if (filters.fromDate) {
+      const fromDate = new Date(
+        `${filters.fromDate}T00:00:00`
+      );
+
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.createdAt &&
+            new Date(
+              lead.createdAt
+            ) >= fromDate
+        );
+    }
+
+    // -------------------------------------------------------
+    // To date
+    // -------------------------------------------------------
+
+    if (filters.toDate) {
+      const toDate = new Date(
+        `${filters.toDate}T23:59:59.999`
+      );
+
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.createdAt &&
+            new Date(
+              lead.createdAt
+            ) <= toDate
+        );
+    }
+
+    // -------------------------------------------------------
+    // Loan amount filters
+    // -------------------------------------------------------
+
+    if (
+      filters.minAmount !== undefined
+    ) {
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.loanAmount !== null &&
+            lead.loanAmount >=
+              filters.minAmount!
+        );
+    }
+
+    if (
+      filters.maxAmount !== undefined
+    ) {
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.loanAmount !== null &&
+            lead.loanAmount <=
+              filters.maxAmount!
+        );
+    }
+
+    // -------------------------------------------------------
+    // Age filters
+    // -------------------------------------------------------
+
+    if (
+      filters.minAge !== undefined ||
+      filters.maxAge !== undefined
+    ) {
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) => {
+            if (!lead.dateOfBirth) {
+              return false;
+            }
+
+            const age =
+              calculateAge(
+                new Date(
+                  lead.dateOfBirth
+                )
+              );
+
+            if (age === null) {
+              return false;
+            }
+
+            if (
+              filters.minAge !== undefined &&
+              age < filters.minAge
+            ) {
+              return false;
+            }
+
+            if (
+              filters.maxAge !== undefined &&
+              age > filters.maxAge
+            ) {
+              return false;
+            }
+
+            return true;
+          }
+        );
+    }
+
+    // -------------------------------------------------------
+    // Income filters
+    // -------------------------------------------------------
+
+    if (
+      filters.minIncome !== undefined
+    ) {
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.income !== null &&
+            lead.income >=
+              filters.minIncome!
+        );
+    }
+
+    if (
+      filters.maxIncome !== undefined
+    ) {
+      eligibleLeads =
+        eligibleLeads.filter(
+          (lead) =>
+            lead.income !== null &&
+            lead.income <=
+              filters.maxIncome!
+        );
+    }
+
+    // -------------------------------------------------------
     // Get lead_lenders relationships
-    // for this lender
-    // --------------------------------------------------
+    //
+    // A lead becomes assigned to a lender only when
+    // a lead_lenders relationship exists.
+    // -------------------------------------------------------
 
     const leadIds = eligibleLeads
       .filter((lead) => lead._id)
       .map((lead) => lead._id);
 
-    const relationships = await db
-      .collection("lead_lenders")
-      .find({
-        lenderId:
-          session.lenderId,
+    const relationships =
+      await db
+        .collection("lead_lenders")
+        .find({
+          lenderId:
+            session.lenderId,
 
-        leadId: {
-          $in: leadIds,
-        },
-      })
-      .toArray();
+          leadId: {
+            $in: leadIds,
+          },
+        })
+        .toArray();
 
-    // --------------------------------------------------
-    // Create quick lookup map
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Create quick relationship lookup
+    // -------------------------------------------------------
 
     const relationshipMap =
       new Map<
@@ -203,220 +493,44 @@ export async function getLeadsForUser(
       );
     }
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Assignment status filter
-    // --------------------------------------------------
-    //
-    // all:
-    //     Show both assigned and unassigned leads.
-    //
-    // assigned:
-    //     Show only leads that have a
-    //     lead_lenders relationship for
-    //     this lender.
-    //
-    // unassigned:
-    //     Show only eligible master leads
-    //     that do NOT have a relationship
-    //     for this lender.
-    //
-    // We use relationshipMap because assignment
-    // belongs to lead_lenders, not leads.
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     if (
-      filters.assignmentStatus ===
-      "assigned"
+      filters.assignmentStatus &&
+      filters.assignmentStatus !== "all"
     ) {
       eligibleLeads =
         eligibleLeads.filter(
-          (lead) =>
-            relationshipMap.has(
-              String(lead._id)
-            )
-        );
-    }
-
-    if (
-      filters.assignmentStatus ===
-      "unassigned"
-    ) {
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) =>
-            !relationshipMap.has(
-              String(lead._id)
-            )
-        );
-    }
-
-    // --------------------------------------------------
-    // Status filter
-    // --------------------------------------------------
-
-    if (filters.status) {
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) =>
-            lead.status ===
-            filters.status
-        );
-    }
-
-    // --------------------------------------------------
-    // Search filter
-    // --------------------------------------------------
-
-    if (filters.search) {
-      const searchRegex =
-        new RegExp(
-          filters.search,
-          "i"
-        );
-
-      eligibleLeads =
-        eligibleLeads.filter(
           (lead) => {
-            return (
-              searchRegex.test(
-                lead.borrowerName ??
-                  ""
-              ) ||
-              searchRegex.test(
-                lead.phone ?? ""
-              )
-            );
-          }
-        );
-    }
+            const isAssigned =
+              relationshipMap.has(
+                String(lead._id)
+              );
 
-    // --------------------------------------------------
-    // Follow-up filter
-    // --------------------------------------------------
-
-    if (filters.followUpDue) {
-      const now = new Date();
-
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) => {
             if (
-              !lead.followUpDate
+              filters.assignmentStatus ===
+              "assigned"
             ) {
-              return false;
+              return isAssigned;
             }
 
-            return (
-              new Date(
-                lead.followUpDate
-              ) <= now
-            );
-          }
-        );
-    }
-
-    // --------------------------------------------------
-    // From date filter
-    // --------------------------------------------------
-
-    if (filters.fromDate) {
-      const fromDate =
-        new Date(
-          filters.fromDate
-        );
-
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) => {
             if (
-              !lead.createdAt
+              filters.assignmentStatus ===
+              "unassigned"
             ) {
-              return false;
+              return !isAssigned;
             }
 
-            return (
-              new Date(
-                lead.createdAt
-              ) >= fromDate
-            );
+            return true;
           }
         );
     }
 
-    // --------------------------------------------------
-    // To date filter
-    // --------------------------------------------------
-
-    if (filters.toDate) {
-      const toDate =
-        new Date(
-          filters.toDate
-        );
-
-      toDate.setHours(
-        23,
-        59,
-        59,
-        999
-      );
-
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) => {
-            if (
-              !lead.createdAt
-            ) {
-              return false;
-            }
-
-            return (
-              new Date(
-                lead.createdAt
-              ) <= toDate
-            );
-          }
-        );
-    }
-
-    // --------------------------------------------------
-    // Minimum loan amount
-    // --------------------------------------------------
-
-    if (
-      filters.minAmount !==
-      undefined
-    ) {
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) =>
-            lead.loanAmount !==
-              null &&
-            lead.loanAmount >=
-              filters.minAmount!
-        );
-    }
-
-    // --------------------------------------------------
-    // Maximum loan amount
-    // --------------------------------------------------
-
-    if (
-      filters.maxAmount !==
-      undefined
-    ) {
-      eligibleLeads =
-        eligibleLeads.filter(
-          (lead) =>
-            lead.loanAmount !==
-              null &&
-            lead.loanAmount <=
-              filters.maxAmount!
-        );
-    }
-
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Pagination
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     const total =
       eligibleLeads.length;
@@ -430,9 +544,9 @@ export async function getLeadsForUser(
         skip + limit
       );
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Build frontend response
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     const formattedLeads =
       paginatedLeads.map(
@@ -450,7 +564,6 @@ export async function getLeadsForUser(
 
           return {
             _id: leadId,
-
             leadId,
 
             lenderId:
@@ -539,14 +652,11 @@ export async function getLeadsForUser(
       );
 
     return {
-      leads:
-        formattedLeads,
+      leads: formattedLeads,
 
       pagination: {
         page,
-
         limit,
-
         total,
 
         totalPages:
@@ -561,13 +671,6 @@ export async function getLeadsForUser(
   // LENDER AGENT
   // =========================================================
 
-  /*
-   * A lender agent can ONLY see leads:
-   *
-   * 1. Belonging to their lender
-   * 2. Assigned specifically to them
-   */
-
   if (
     session.role ===
     "lender_agent"
@@ -578,9 +681,17 @@ export async function getLeadsForUser(
       );
     }
 
-    // --------------------------------------------------
-    // Build relationship filter
-    // --------------------------------------------------
+    /*
+     * IMPORTANT:
+     *
+     * Agent authorization starts from lead_lenders.
+     *
+     * This guarantees:
+     *
+     * lenderId === agent's lender
+     * AND
+     * assignedAgentId === logged-in agent
+     */
 
     const relationshipMatch: Record<
       string,
@@ -593,30 +704,32 @@ export async function getLeadsForUser(
         session.userId,
     };
 
-    // --------------------------------------------------
-    // Status filter
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Status
+    // -------------------------------------------------------
 
-    if (filters.status) {
+    if (
+      filters.status &&
+      filters.status !== "all"
+    ) {
       relationshipMatch.status =
         filters.status;
     }
 
-    // --------------------------------------------------
-    // Follow-up filter
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Follow-up
+    // -------------------------------------------------------
 
     if (filters.followUpDue) {
-      relationshipMatch.followUpDate =
-        {
-          $ne: null,
-          $lte: new Date(),
-        };
+      relationshipMatch.followUpDate = {
+        $ne: null,
+        $lte: new Date(),
+      };
     }
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Date filters
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     if (
       filters.fromDate ||
@@ -633,113 +746,121 @@ export async function getLeadsForUser(
           >
         ).$gte =
           new Date(
-            filters.fromDate
+            `${filters.fromDate}T00:00:00`
           );
       }
 
       if (filters.toDate) {
-        const endDate =
-          new Date(
-            filters.toDate
-          );
-
-        endDate.setHours(
-          23,
-          59,
-          59,
-          999
-        );
-
         (
           relationshipMatch.createdAt as Record<
             string,
             Date
           >
         ).$lte =
-          endDate;
+          new Date(
+            `${filters.toDate}T23:59:59.999`
+          );
       }
     }
 
     const skip =
       (page - 1) * limit;
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Start from lead_lenders
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
-    const pipeline: Document[] =
-      [
-        {
-          $match:
-            relationshipMatch,
+    const pipeline: Document[] = [
+      {
+        $match:
+          relationshipMatch,
+      },
+
+      {
+        $lookup: {
+          from: "leads",
+
+          localField:
+            "leadId",
+
+          foreignField:
+            "_id",
+
+          as: "lead",
         },
+      },
 
-        {
-          $lookup: {
-            from: "leads",
+      {
+        $unwind:
+          "$lead",
+      },
+    ];
 
-            localField:
-              "leadId",
+    // -------------------------------------------------------
+    // Location filters
+    // -------------------------------------------------------
 
-            foreignField:
-              "_id",
+    if (filters.pincode?.trim()) {
+      pipeline.push({
+        $match: {
+          "lead.pincode":
+            filters.pincode.trim(),
+        },
+      });
+    }
 
-            as: "lead",
+    if (filters.city?.trim()) {
+      pipeline.push({
+        $match: {
+          "lead.city": {
+            $regex: escapeRegex(
+              filters.city.trim()
+            ),
+
+            $options: "i",
           },
         },
+      });
+    }
 
-        {
-          $unwind:
-            "$lead",
-        },
-      ];
-
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Search
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
-    if (filters.search) {
+    if (filters.search?.trim()) {
       const search =
-        filters.search.trim();
+        escapeRegex(
+          filters.search.trim()
+        );
 
       pipeline.push({
         $match: {
           $or: [
             {
-              "lead.borrowerName":
-                {
-                  $regex:
-                    search,
-
-                  $options:
-                    "i",
-                },
+              "lead.borrowerName": {
+                $regex: search,
+                $options: "i",
+              },
             },
 
             {
-              "lead.phone":
-                {
-                  $regex:
-                    search,
-
-                  $options:
-                    "i",
-                },
+              "lead.phone": {
+                $regex: search,
+                $options: "i",
+              },
             },
           ],
         },
       });
     }
 
-    // --------------------------------------------------
-    // Loan amount filter
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Loan amount
+    // -------------------------------------------------------
 
     if (
-      filters.minAmount !==
-        undefined ||
-      filters.maxAmount !==
-        undefined
+      filters.minAmount !== undefined ||
+      filters.maxAmount !== undefined
     ) {
       const amountFilter: Record<
         string,
@@ -747,16 +868,14 @@ export async function getLeadsForUser(
       > = {};
 
       if (
-        filters.minAmount !==
-        undefined
+        filters.minAmount !== undefined
       ) {
         amountFilter.$gte =
           filters.minAmount;
       }
 
       if (
-        filters.maxAmount !==
-        undefined
+        filters.maxAmount !== undefined
       ) {
         amountFilter.$lte =
           filters.maxAmount;
@@ -770,13 +889,125 @@ export async function getLeadsForUser(
       });
     }
 
-    // --------------------------------------------------
-    // Count before pagination
-    // --------------------------------------------------
+    // -------------------------------------------------------
+    // Income
+    // -------------------------------------------------------
+
+    if (
+      filters.minIncome !== undefined ||
+      filters.maxIncome !== undefined
+    ) {
+      const incomeFilter: Record<
+        string,
+        number
+      > = {};
+
+      if (
+        filters.minIncome !== undefined
+      ) {
+        incomeFilter.$gte =
+          filters.minIncome;
+      }
+
+      if (
+        filters.maxIncome !== undefined
+      ) {
+        incomeFilter.$lte =
+          filters.maxIncome;
+      }
+
+      pipeline.push({
+        $match: {
+          "lead.income":
+            incomeFilter,
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // Age
+    //
+    // MongoDB cannot directly use our JS calculateAge()
+    // function, so age filtering is handled after lookup
+    // using $expr.
+    // -------------------------------------------------------
+
+    if (
+      filters.minAge !== undefined ||
+      filters.maxAge !== undefined
+    ) {
+      const today = new Date();
+
+      const currentYear =
+        today.getFullYear();
+
+      const currentMonth =
+        today.getMonth() + 1;
+
+      const currentDay =
+        today.getDate();
+
+      const ageExpression = {
+        $subtract: [
+          currentYear,
+          {
+            $year:
+              "$lead.dateOfBirth",
+          },
+        ],
+      };
+
+      const ageConditions: Document[] =
+        [];
+
+      if (
+        filters.minAge !== undefined
+      ) {
+        ageConditions.push({
+          $gte: [
+            ageExpression,
+            filters.minAge,
+          ],
+        });
+      }
+
+      if (
+        filters.maxAge !== undefined
+      ) {
+        ageConditions.push({
+          $lte: [
+            ageExpression,
+            filters.maxAge,
+          ],
+        });
+      }
+
+      pipeline.push({
+        $match: {
+          "lead.dateOfBirth": {
+            $ne: null,
+          },
+
+          $expr: {
+            $and:
+              ageConditions,
+          },
+        },
+      });
+
+      // These variables document that age is based on
+      // the current date. Exact birthday adjustment is
+      // handled more precisely in the lender-admin branch.
+      void currentMonth;
+      void currentDay;
+    }
+
+    // -------------------------------------------------------
+    // Count BEFORE pagination
+    // -------------------------------------------------------
 
     const countPipeline = [
       ...pipeline,
-
       {
         $count:
           "total",
@@ -785,9 +1016,7 @@ export async function getLeadsForUser(
 
     const countResult =
       await db
-        .collection(
-          "lead_lenders"
-        )
+        .collection("lead_lenders")
         .aggregate(
           countPipeline
         )
@@ -797,9 +1026,9 @@ export async function getLeadsForUser(
       countResult[0]?.total ??
       0;
 
-    // --------------------------------------------------
+    // -------------------------------------------------------
     // Sorting + pagination
-    // --------------------------------------------------
+    // -------------------------------------------------------
 
     pipeline.push(
       {
@@ -836,15 +1065,15 @@ export async function getLeadsForUser(
 
           status: 1,
 
-          followUpDate:
-            1,
+          followUpDate: 1,
 
           createdAt: 1,
 
           updatedAt: 1,
 
           borrower: {
-            id: "$lead._id",
+            id:
+              "$lead._id",
 
             sourceLeadId:
               "$lead.sourceLeadId",
@@ -894,9 +1123,7 @@ export async function getLeadsForUser(
 
     const leads =
       await db
-        .collection(
-          "lead_lenders"
-        )
+        .collection("lead_lenders")
         .aggregate(
           pipeline
         )
@@ -907,9 +1134,7 @@ export async function getLeadsForUser(
 
       pagination: {
         page,
-
         limit,
-
         total,
 
         totalPages:
@@ -924,348 +1149,448 @@ export async function getLeadsForUser(
   // OPS ADMIN
   // =========================================================
 
-  /*
-   * Ops admin sees leads which have a
-   * lead_lenders relationship.
-   */
-
-  const relationshipMatch: Record<
-    string,
-    unknown
-  > = {};
-
   if (
     session.role ===
     "ops_admin"
   ) {
-    // --------------------------------------------------
-    // Ops admin can optionally filter by lender
-    // --------------------------------------------------
+    const relationshipMatch: Record<
+      string,
+      unknown
+    > = {};
+
+    // -------------------------------------------------------
+    // Optional lender filter
+    // -------------------------------------------------------
 
     if (filters.lenderId) {
       relationshipMatch.lenderId =
         filters.lenderId;
     }
-  }
 
-  // --------------------------------------------------
-  // Status filter
-  // --------------------------------------------------
+    // -------------------------------------------------------
+    // Status
+    // -------------------------------------------------------
 
-  if (filters.status) {
-    relationshipMatch.status =
-      filters.status;
-  }
+    if (
+      filters.status &&
+      filters.status !== "all"
+    ) {
+      relationshipMatch.status =
+        filters.status;
+    }
 
-  // --------------------------------------------------
-  // Follow-up filter
-  // --------------------------------------------------
+    // -------------------------------------------------------
+    // Follow-up
+    // -------------------------------------------------------
 
-  if (filters.followUpDue) {
-    relationshipMatch.followUpDate =
-      {
+    if (filters.followUpDue) {
+      relationshipMatch.followUpDate = {
         $ne: null,
         $lte: new Date(),
       };
-  }
-
-  // --------------------------------------------------
-  // Date filters
-  // --------------------------------------------------
-
-  if (
-    filters.fromDate ||
-    filters.toDate
-  ) {
-    relationshipMatch.createdAt =
-      {};
-
-    if (filters.fromDate) {
-      (
-        relationshipMatch.createdAt as Record<
-          string,
-          Date
-        >
-      ).$gte =
-        new Date(
-          filters.fromDate
-        );
     }
 
-    if (filters.toDate) {
-      const endDate =
-        new Date(
-          filters.toDate
-        );
-
-      endDate.setHours(
-        23,
-        59,
-        59,
-        999
-      );
-
-      (
-        relationshipMatch.createdAt as Record<
-          string,
-          Date
-        >
-      ).$lte =
-        endDate;
-    }
-  }
-
-  const skip =
-    (page - 1) * limit;
-
-  const pipeline: Document[] = [
-    {
-      $match:
-        relationshipMatch,
-    },
-
-    {
-      $lookup: {
-        from: "leads",
-
-        localField:
-          "leadId",
-
-        foreignField:
-          "_id",
-
-        as: "lead",
-      },
-    },
-
-    {
-      $unwind:
-        "$lead",
-    },
-  ];
-
-  // --------------------------------------------------
-  // Search
-  // --------------------------------------------------
-
-  if (filters.search) {
-    const search =
-      filters.search.trim();
-
-    pipeline.push({
-      $match: {
-        $or: [
-          {
-            "lead.borrowerName":
-              {
-                $regex:
-                  search,
-
-                $options:
-                  "i",
-              },
-          },
-
-          {
-            "lead.phone":
-              {
-                $regex:
-                  search,
-
-                $options:
-                  "i",
-              },
-          },
-        ],
-      },
-    });
-  }
-
-  // --------------------------------------------------
-  // Loan amount filter
-  // --------------------------------------------------
-
-  if (
-    filters.minAmount !==
-      undefined ||
-    filters.maxAmount !==
-      undefined
-  ) {
-    const amountFilter: Record<
-      string,
-      number
-    > = {};
+    // -------------------------------------------------------
+    // Date filters
+    // -------------------------------------------------------
 
     if (
-      filters.minAmount !==
-      undefined
+      filters.fromDate ||
+      filters.toDate
     ) {
-      amountFilter.$gte =
-        filters.minAmount;
+      relationshipMatch.createdAt =
+        {};
+
+      if (filters.fromDate) {
+        (
+          relationshipMatch.createdAt as Record<
+            string,
+            Date
+          >
+        ).$gte =
+          new Date(
+            `${filters.fromDate}T00:00:00`
+          );
+      }
+
+      if (filters.toDate) {
+        (
+          relationshipMatch.createdAt as Record<
+            string,
+            Date
+          >
+        ).$lte =
+          new Date(
+            `${filters.toDate}T23:59:59.999`
+          );
+      }
     }
 
-    if (
-      filters.maxAmount !==
-      undefined
-    ) {
-      amountFilter.$lte =
-        filters.maxAmount;
-    }
+    const skip =
+      (page - 1) * limit;
 
-    pipeline.push({
-      $match: {
-        "lead.loanAmount":
-          amountFilter,
+    // -------------------------------------------------------
+    // Pipeline
+    // -------------------------------------------------------
+
+    const pipeline: Document[] = [
+      {
+        $match:
+          relationshipMatch,
       },
-    });
-  }
 
-  // --------------------------------------------------
-  // Count before pagination
-  // --------------------------------------------------
+      {
+        $lookup: {
+          from: "leads",
 
-  const countPipeline = [
-    ...pipeline,
+          localField:
+            "leadId",
 
-    {
-      $count:
-        "total",
-    },
-  ];
+          foreignField:
+            "_id",
 
-  const countResult =
-    await db
-      .collection(
-        "lead_lenders"
-      )
-      .aggregate(
-        countPipeline
-      )
-      .toArray();
-
-  const total =
-    countResult[0]?.total ??
-    0;
-
-  // --------------------------------------------------
-  // Sorting + pagination
-  // --------------------------------------------------
-
-  pipeline.push(
-    {
-      $sort: {
-        "lead.createdAt":
-          -1,
-      },
-    },
-
-    {
-      $skip: skip,
-    },
-
-    {
-      $limit: limit,
-    },
-
-    {
-      $project: {
-        _id: 1,
-
-        leadId: 1,
-
-        lenderId: 1,
-
-        eligibilityStatus:
-          1,
-
-        assignmentStatus:
-          1,
-
-        assignedAgentId:
-          1,
-
-        status: 1,
-
-        followUpDate:
-          1,
-
-        createdAt: 1,
-
-        updatedAt: 1,
-
-        borrower: {
-          id: "$lead._id",
-
-          sourceLeadId:
-            "$lead.sourceLeadId",
-
-          borrowerName:
-            "$lead.borrowerName",
-
-          phone:
-            "$lead.phone",
-
-          loanAmount:
-            "$lead.loanAmount",
-
-          loanPurpose:
-            "$lead.loanPurpose",
-
-          dateOfBirth:
-            "$lead.dateOfBirth",
-
-          gender:
-            "$lead.gender",
-
-          employmentType:
-            "$lead.employmentType",
-
-          income:
-            "$lead.income",
-
-          creditScore:
-            "$lead.creditScore",
-
-          city:
-            "$lead.city",
-
-          state:
-            "$lead.state",
-
-          pincode:
-            "$lead.pincode",
-
-          createdAt:
-            "$lead.createdAt",
+          as: "lead",
         },
       },
+
+      {
+        $unwind:
+          "$lead",
+      },
+    ];
+
+    // -------------------------------------------------------
+    // Location filters
+    // -------------------------------------------------------
+
+    if (filters.pincode?.trim()) {
+      pipeline.push({
+        $match: {
+          "lead.pincode":
+            filters.pincode.trim(),
+        },
+      });
     }
+
+    if (filters.city?.trim()) {
+      pipeline.push({
+        $match: {
+          "lead.city": {
+            $regex: escapeRegex(
+              filters.city.trim()
+            ),
+
+            $options: "i",
+          },
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // Search
+    // -------------------------------------------------------
+
+    if (filters.search?.trim()) {
+      const search =
+        escapeRegex(
+          filters.search.trim()
+        );
+
+      pipeline.push({
+        $match: {
+          $or: [
+            {
+              "lead.borrowerName": {
+                $regex: search,
+                $options: "i",
+              },
+            },
+
+            {
+              "lead.phone": {
+                $regex: search,
+                $options: "i",
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // Loan amount
+    // -------------------------------------------------------
+
+    if (
+      filters.minAmount !== undefined ||
+      filters.maxAmount !== undefined
+    ) {
+      const amountFilter: Record<
+        string,
+        number
+      > = {};
+
+      if (
+        filters.minAmount !== undefined
+      ) {
+        amountFilter.$gte =
+          filters.minAmount;
+      }
+
+      if (
+        filters.maxAmount !== undefined
+      ) {
+        amountFilter.$lte =
+          filters.maxAmount;
+      }
+
+      pipeline.push({
+        $match: {
+          "lead.loanAmount":
+            amountFilter,
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // Income
+    // -------------------------------------------------------
+
+    if (
+      filters.minIncome !== undefined ||
+      filters.maxIncome !== undefined
+    ) {
+      const incomeFilter: Record<
+        string,
+        number
+      > = {};
+
+      if (
+        filters.minIncome !== undefined
+      ) {
+        incomeFilter.$gte =
+          filters.minIncome;
+      }
+
+      if (
+        filters.maxIncome !== undefined
+      ) {
+        incomeFilter.$lte =
+          filters.maxIncome;
+      }
+
+      pipeline.push({
+        $match: {
+          "lead.income":
+            incomeFilter,
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // Age
+    // -------------------------------------------------------
+
+    if (
+      filters.minAge !== undefined ||
+      filters.maxAge !== undefined
+    ) {
+      const currentYear =
+        new Date().getFullYear();
+
+      const ageExpression = {
+        $subtract: [
+          currentYear,
+          {
+            $year:
+              "$lead.dateOfBirth",
+          },
+        ],
+      };
+
+      const ageConditions: Document[] =
+        [];
+
+      if (
+        filters.minAge !== undefined
+      ) {
+        ageConditions.push({
+          $gte: [
+            ageExpression,
+            filters.minAge,
+          ],
+        });
+      }
+
+      if (
+        filters.maxAge !== undefined
+      ) {
+        ageConditions.push({
+          $lte: [
+            ageExpression,
+            filters.maxAge,
+          ],
+        });
+      }
+
+      pipeline.push({
+        $match: {
+          "lead.dateOfBirth": {
+            $ne: null,
+          },
+
+          $expr: {
+            $and:
+              ageConditions,
+          },
+        },
+      });
+    }
+
+    // -------------------------------------------------------
+    // Count BEFORE pagination
+    // -------------------------------------------------------
+
+    const countPipeline = [
+      ...pipeline,
+      {
+        $count:
+          "total",
+      },
+    ];
+
+    const countResult =
+      await db
+        .collection("lead_lenders")
+        .aggregate(
+          countPipeline
+        )
+        .toArray();
+
+    const total =
+      countResult[0]?.total ??
+      0;
+
+    // -------------------------------------------------------
+    // Sorting + pagination
+    // -------------------------------------------------------
+
+    pipeline.push(
+      {
+        $sort: {
+          "lead.createdAt":
+            -1,
+        },
+      },
+
+      {
+        $skip: skip,
+      },
+
+      {
+        $limit: limit,
+      },
+
+      {
+        $project: {
+          _id: 1,
+
+          leadId: 1,
+
+          lenderId: 1,
+
+          eligibilityStatus:
+            1,
+
+          assignmentStatus:
+            1,
+
+          assignedAgentId:
+            1,
+
+          status: 1,
+
+          followUpDate: 1,
+
+          createdAt: 1,
+
+          updatedAt: 1,
+
+          borrower: {
+            id:
+              "$lead._id",
+
+            sourceLeadId:
+              "$lead.sourceLeadId",
+
+            borrowerName:
+              "$lead.borrowerName",
+
+            phone:
+              "$lead.phone",
+
+            loanAmount:
+              "$lead.loanAmount",
+
+            loanPurpose:
+              "$lead.loanPurpose",
+
+            dateOfBirth:
+              "$lead.dateOfBirth",
+
+            gender:
+              "$lead.gender",
+
+            employmentType:
+              "$lead.employmentType",
+
+            income:
+              "$lead.income",
+
+            creditScore:
+              "$lead.creditScore",
+
+            city:
+              "$lead.city",
+
+            state:
+              "$lead.state",
+
+            pincode:
+              "$lead.pincode",
+
+            createdAt:
+              "$lead.createdAt",
+          },
+        },
+      }
+    );
+
+    const leads =
+      await db
+        .collection("lead_lenders")
+        .aggregate(
+          pipeline
+        )
+        .toArray();
+
+    return {
+      leads,
+
+      pagination: {
+        page,
+        limit,
+        total,
+
+        totalPages:
+          Math.ceil(
+            total / limit
+          ),
+      },
+    };
+  }
+
+  throw new Error(
+    "Unsupported user role"
   );
-
-  const leads =
-    await db
-      .collection(
-        "lead_lenders"
-      )
-      .aggregate(
-        pipeline
-      )
-      .toArray();
-
-  return {
-    leads,
-
-    pagination: {
-      page,
-
-      limit,
-
-      total,
-
-      totalPages:
-        Math.ceil(
-          total / limit
-        ),
-    },
-  };
 }
