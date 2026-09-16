@@ -194,12 +194,6 @@ export async function DELETE(request: Request) {
       );
     }
 
-    /*
-     * Require an explicit confirmation phrase.
-     *
-     * This prevents accidental deletion from a simple
-     * DELETE request.
-     */
     if (confirmation !== lenderId) {
       return NextResponse.json(
         {

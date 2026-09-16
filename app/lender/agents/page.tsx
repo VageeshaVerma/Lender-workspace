@@ -19,7 +19,7 @@ type Agent = {
 export default function LenderAgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [removingAgentId, setRemovingAgentId] = useState<string | null>(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [email, setEmail] = useState("");
 
@@ -121,6 +121,55 @@ export default function LenderAgentsPage() {
       setInviting(false);
     }
   }
+
+  async function handleRemoveAgent(agentId: string) {
+  const confirmed = window.confirm(
+    "Are you sure you want to remove this agent?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setRemovingAgentId(agentId);
+    setError("");
+    setSuccess("");
+
+    const response = await fetch(
+      `/api/lender/agents/${agentId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "Failed to remove agent"
+      );
+    }
+
+    setAgents((currentAgents) =>
+      currentAgents.filter(
+        (agent) => agent._id !== agentId
+      )
+    );
+
+    setSuccess("Agent removed successfully.");
+  } catch (err) {
+    console.error("Remove agent error:", err);
+
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Failed to remove agent"
+    );
+  } finally {
+    setRemovingAgentId(null);
+  }
+}
 
   return (
     <main className="min-h-screen bg-[#fff8f5] px-4 py-6 sm:px-6 lg:px-8">
@@ -273,29 +322,40 @@ export default function LenderAgentsPage() {
               {agents.map((agent) => (
                 <GlassCard key={agent._id}>
                   <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <h3 className="truncate font-semibold text-zinc-900">
-                        {agent.name || "Unnamed Agent"}
-                      </h3>
+  <div className="min-w-0">
+    <h3 className="truncate font-semibold text-zinc-900">
+      {agent.name || "Unnamed Agent"}
+    </h3>
 
-                      <p className="mt-1 break-all text-sm text-zinc-500">
-                        {agent.email}
-                      </p>
+    <p className="mt-1 break-all text-sm text-zinc-500">
+      {agent.email}
+    </p>
 
-                      {agent.createdAt && (
-                        <p className="mt-2 text-xs text-zinc-400">
-                          Joined{" "}
-                          {new Date(agent.createdAt).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
+    {agent.createdAt && (
+      <p className="mt-2 text-xs text-zinc-400">
+        Joined{" "}
+        {new Date(agent.createdAt).toLocaleDateString()}
+      </p>
+    )}
 
-                    <Badge
-                      variant={agent.isActive ? "success" : "neutral"}
-                    >
-                      {agent.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
+    <button
+      type="button"
+      onClick={() => handleRemoveAgent(agent._id)}
+      disabled={removingAgentId === agent._id}
+      className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {removingAgentId === agent._id
+        ? "Removing..."
+        : "Remove Agent"}
+    </button>
+  </div>
+
+  <Badge
+    variant={agent.isActive ? "success" : "neutral"}
+  >
+    {agent.isActive ? "Active" : "Inactive"}
+  </Badge>
+</div>
                 </GlassCard>
               ))}
             </div>

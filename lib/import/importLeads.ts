@@ -25,11 +25,7 @@ export async function importLeads(
     };
   }
 
-  /*
-   * Step 1:
-   * Remove duplicate sourceLeadId values
-   * from the same CSV file.
-   */
+
   const uniqueLeads = new Map<string, ParsedLead>();
 
   let skippedDuplicateInFile = 0;

@@ -1,5 +1,5 @@
 "use client";
-
+import { useRouter } from "next/navigation";
 import { ChangeEvent, useState } from "react";
 
 type ImportType = "lenders" | "leads";
@@ -21,14 +21,12 @@ type ImportResponse = {
 export default function ImportsPage() {
   const [lenderFile, setLenderFile] = useState<File | null>(null);
   const [leadFile, setLeadFile] = useState<File | null>(null);
-
   const [loading, setLoading] = useState<ImportType | null>(null);
-
   const [result, setResult] = useState<{
     type: ImportType;
     data: ImportResult;
   } | null>(null);
-
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   function handleFileChange(
@@ -124,21 +122,31 @@ export default function ImportsPage() {
   return (
     <main className="min-h-screen bg-[#fff8f5] px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
-        {/* Header */}
-        <div className="mb-8">
-          <p className="text-sm font-medium text-rose-500">
-            Operations
-          </p>
+{/* Header */}
+<div className="mb-8">
+  <button
+    type="button"
+    onClick={() => router.back()}
+    className="mb-5 inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+  >
+    ← Back
+  </button>
 
-          <h1 className="mt-1 text-3xl font-semibold text-slate-900">
-            Data Imports
-          </h1>
+  <p className="text-sm font-medium text-rose-500">
+    Operations
+  </p>
 
-          <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Upload lender and lead CSV files into the Lender Workspace.
-            Existing records are protected and will be skipped.
-          </p>
-        </div>
+  <h1 className="mt-1 text-3xl font-semibold text-slate-900">
+    Data Imports
+  </h1>
+
+  <p className="mt-2 max-w-2xl text-sm text-slate-600">
+    Upload lender and lead CSV files into the Lender Workspace.
+    Existing records are protected and will be skipped.
+  </p>
+</div>
+
+
 
         {/* Error */}
         {error && (

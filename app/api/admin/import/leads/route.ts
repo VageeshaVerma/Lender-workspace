@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
-
 import { getSession } from "@/lib/auth/session";
-import {
-  parseLeadCSV,
-  validateLeads,
-} from "@/lib/import/parseLeads";
+import {parseLeadCSV,validateLeads,} from "@/lib/import/parseLeads";
 import { importLeads } from "@/lib/import/importLeads";
 
 export async function POST(request: Request) {
   try {
-    /*
-     * 1. Authenticate the request.
-     */
+    
     const session = await getSession();
 
     if (!session) {
@@ -20,10 +14,6 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
-
-    /*
-     * 2. Only ops_admin can import leads.
-     */
     if (session.role !== "ops_admin") {
       return NextResponse.json(
         { error: "Forbidden" },
@@ -31,9 +21,6 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 3. Read multipart/form-data.
-     */
     const formData = await request.formData();
 
     const file = formData.get("file");
@@ -45,9 +32,6 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 4. Basic file validation.
-     */
     if (file.size === 0) {
       return NextResponse.json(
         { error: "Uploaded file is empty" },
@@ -55,19 +39,11 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 5. Read CSV contents.
-     */
     const csvContent = await file.text();
 
-    /*
-     * 6. Parse CSV.
-     */
+   
     const leads = parseLeadCSV(csvContent);
 
-    /*
-     * 7. Validate parsed leads.
-     */
     const validationErrors = validateLeads(leads);
 
     if (validationErrors.length > 0) {
@@ -80,14 +56,8 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * 8. Import only new leads.
-     */
     const result = await importLeads(leads);
 
-    /*
-     * 9. Return import summary.
-     */
     return NextResponse.json({
       message: "Lead import completed",
       result,

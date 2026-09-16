@@ -4,7 +4,7 @@ import LenderStatusToggle from "@/components/admin/LenderStatusToggle";
 import LenderConfigurationForm from "@/components/admin/LenderConfigurationForm";
 import GlassCard from "@/components/ui/GlassCard";
 import Badge from "@/components/ui/Badge";
-
+import InviteLenderAdmin from "@/components/admin/InviteLenderAdmin";
 type Agent = {
   _id: string;
   name: string;
@@ -229,10 +229,17 @@ export default async function AdminLenderDetailPage({
               </p>
             </div>
 
-            <LenderStatusToggle
-              lenderId={lender.lender_id}
-              initialIsActive={lender.isActive}
-            />
+            <div className="flex flex-wrap items-center gap-3">
+  <InviteLenderAdmin
+    lenderId={lender.lender_id}
+    lenderName={lender.name}
+  />
+
+  <LenderStatusToggle
+    lenderId={lender.lender_id}
+    initialIsActive={lender.isActive}
+  />
+</div>
           </div>
         </div>
 
