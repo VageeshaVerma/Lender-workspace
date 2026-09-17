@@ -161,8 +161,8 @@ export async function POST(request: NextRequest) {
      * For local development, it falls back to localhost.
      */
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000";
+  process.env.NEXT_PUBLIC_APP_URL ||
+  `https://${process.env.VERCEL_URL}`;
 
     const inviteLink =
       `${baseUrl}/invite/${token}`;
