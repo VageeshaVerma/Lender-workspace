@@ -40,11 +40,19 @@ export async function GET(request: NextRequest, context: { params: Promise<{ lea
     );
 
     if (!lead) {
-      return Response.json(
-        { error: "Lead not found" },
-        { status: 404 }
-      );
-    }
+  return Response.json(
+    {
+      error: "Lead not found",
+      debug: {
+        email: session.email,
+        role: session.role,
+        lenderId: session.lenderId,
+        leadId: leadObjectId.toString(),
+      },
+    },
+    { status: 404 }
+  );
+}
 
     return Response.json({ lead });
 
