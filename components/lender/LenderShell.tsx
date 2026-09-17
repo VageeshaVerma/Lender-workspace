@@ -229,7 +229,7 @@ export default function LenderShell({
   ) {
     navigation.push({
       label: "Lenders",
-      href: "/lender/lenders",
+      href: "/admin/lenders",
       icon: <LendersIcon />,
     });
   }
