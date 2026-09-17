@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { getLeadsForUser } from "@/lib/db/leads";
 import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/auth/session";
@@ -36,60 +36,6 @@ type LeadsResponse = {
   };
 };
 
-async function getLeads(): Promise<LeadsResponse> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("session");
-
-  const baseUrl =
-  process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000";
-
-  const response = await fetch(
-    `${baseUrl}/api/leads?limit=10`,
-    {
-      headers: {
-        Cookie: sessionCookie
-          ? `session=${sessionCookie.value}`
-          : "",
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (!response.ok) {
-  const errorText = await response.text();
-
-  console.error(
-    "Failed to fetch leads:",
-    response.status,
-    errorText.slice(0, 500)
-  );
-
-  throw new Error(
-    `Failed to fetch leads: ${response.status}`
-  );
-}
-
-const contentType = response.headers.get("content-type");
-
-if (!contentType?.includes("application/json")) {
-  const responseText = await response.text();
-
-  console.error(
-    "Expected JSON but received:",
-    contentType,
-    responseText.slice(0, 500)
-  );
-
-  throw new Error(
-    "Leads API returned a non-JSON response"
-  );
-}
-
-return response.json();
-}
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -286,8 +232,14 @@ export default async function LenderDashboardPage() {
   redirect("/");
 }
 
-  const data = await getLeads();
-  const leads = data.leads;
+  const data = await getLeadsForUser(
+  session,
+  {
+    limit: 10,
+  }
+);
+
+const leads = data.leads;
 
   const totalLeads = data.pagination.total;
 
