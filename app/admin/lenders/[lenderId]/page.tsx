@@ -79,17 +79,21 @@ export default async function AdminLenderDetailPage({
     )
     .join("; ");
 
-  const response = await fetch(
-    `http://localhost:3000/api/admin/lenders/${encodeURIComponent(
-      lenderId
-    )}`,
-    {
-      headers: {
-        Cookie: cookieHeader,
-      },
-      cache: "no-store",
-    }
-  );
+  const baseUrl =
+  process.env.NEXT_PUBLIC_APP_URL ||
+  `https://${process.env.VERCEL_URL}`;
+
+const response = await fetch(
+  `${baseUrl}/api/admin/lenders/${encodeURIComponent(
+    lenderId
+  )}`,
+  {
+    headers: {
+      Cookie: cookieHeader,
+    },
+    cache: "no-store",
+  }
+);
 
   if (response.status === 401) {
     return (
