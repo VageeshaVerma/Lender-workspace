@@ -225,6 +225,10 @@ export async function getLeadDetailForUser(
       },
     ])
     .toArray();
+console.log("=== LEAD DETAIL RESULT ===", {
+  count: result.length,
+  leadId: leadId.toString(),
+});
 
   return result[0] ?? null;
 }
