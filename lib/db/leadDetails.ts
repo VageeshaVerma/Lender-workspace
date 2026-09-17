@@ -2,10 +2,49 @@ import clientPromise from "./mongodb";
 import { SessionPayload } from "../auth/session";
 import { ObjectId } from "mongodb";
 
+export type LeadDetail = {
+  _id: ObjectId;
+  lenderId: string;
+  leadId: ObjectId;
+  eligibilityStatus?: string;
+  assignmentStatus?: string;
+  assignedAgentId?: string | null;
+  status: string;
+  followUpDate?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+
+  borrower: {
+    id: ObjectId;
+    sourceLeadId?: string;
+    borrowerName: string;
+    phone: string;
+    loanAmount: number;
+    loanPurpose: string;
+    dateOfBirth?: Date | null;
+    gender?: string;
+    maritalStatus?: string | null;
+    employmentType?: string;
+    income?: number;
+    workExperience?: number | null;
+    creditScore?: number;
+    addressLine1?: string;
+    addressLine2?: string | null;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+
+  offers: any[];
+  history: any[];
+};
+
 export async function getLeadDetailForUser(
   session: SessionPayload,
   leadId: ObjectId
-) {
+): Promise<LeadDetail | null> {
   const client = await clientPromise;
 
   const db = client.db(process.env.MONGODB_DB);
@@ -230,5 +269,5 @@ console.log("=== LEAD DETAIL RESULT ===", {
   leadId: leadId.toString(),
 });
 
-  return result[0] ?? null;
+  return (result[0] as LeadDetail | undefined) ?? null;
 }

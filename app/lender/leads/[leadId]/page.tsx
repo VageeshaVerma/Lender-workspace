@@ -48,27 +48,27 @@ type LeadDetail = {
   updatedAt: string;
 
   borrower: {
-    id: string;
-    sourceLeadId?: string;
-    borrowerName: string;
-    phone: string;
-    loanAmount: number;
-    loanPurpose: string;
-    dateOfBirth?: string;
-    gender?: string;
-    maritalStatus?: string;
-    employmentType?: string;
-    income?: number;
-    workExperience?: number;
-    creditScore?: number;
-    addressLine1?: string;
-    addressLine2?: string;
-    city?: string;
-    state?: string;
-    pincode?: string;
-    createdAt: string;
-    updatedAt: string;
-  };
+  id: string;
+  sourceLeadId?: string;
+  borrowerName: string;
+  phone: string;
+  loanAmount: number;
+  loanPurpose: string;
+  dateOfBirth?: string | null;
+  gender?: string;
+  maritalStatus?: string | null;
+  employmentType?: string;
+  income?: number;
+  workExperience?: number | null;
+  creditScore?: number;
+  addressLine1?: string;
+  addressLine2?: string | null;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
   offers: Offer[];
   history: HistoryEvent[];
@@ -118,14 +118,12 @@ function formatDateTime(date?: string | null) {
   });
 }
 
-function formatLabel(value?: string) {
-  if (!value) {
-    return "—";
-  }
+function formatLabel(value?: string | null) {
+  if (!value) return "Not provided";
 
   return value
-  .replaceAll("_", " ")
-  .replace(/\b\w/g, (char) => char.toUpperCase());
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 
@@ -221,32 +219,82 @@ export default async function LeadDetailPage({
    * The UI types use strings, so normalize the IDs here.
    */
   const lead: LeadDetail = {
-    ...rawLead,
-    _id: rawLead._id.toString(),
-    leadId: rawLead.leadId.toString(),
-    assignedAgentId: rawLead.assignedAgentId
-      ? rawLead.assignedAgentId.toString()
+  ...rawLead,
+
+  // MongoDB ObjectIds → strings
+  _id: rawLead._id.toString(),
+  leadId: rawLead.leadId.toString(),
+
+  assignedAgentId: rawLead.assignedAgentId
+    ? rawLead.assignedAgentId.toString()
+    : null,
+
+  // MongoDB Dates → ISO strings
+  createdAt: rawLead.createdAt.toISOString(),
+  updatedAt: rawLead.updatedAt.toISOString(),
+
+  followUpDate: rawLead.followUpDate
+    ? rawLead.followUpDate.toISOString()
+    : null,
+
+  borrower: {
+    ...rawLead.borrower,
+
+    // ObjectId → string
+    id: rawLead.borrower.id.toString(),
+
+    // Date → string
+    dateOfBirth: rawLead.borrower.dateOfBirth
+      ? rawLead.borrower.dateOfBirth.toISOString()
       : null,
 
-    borrower: {
-      ...rawLead.borrower,
-      id: rawLead.borrower.id.toString(),
-    },
+    // Dates → strings
+    createdAt: rawLead.borrower.createdAt.toISOString(),
+    updatedAt: rawLead.borrower.updatedAt.toISOString(),
+  },
 
-    offers: (rawLead.offers ?? []).map(
-      (offer: any) => ({
-        ...offer,
-        _id: offer._id.toString(),
-      })
-    ),
+  offers: (rawLead.offers ?? []).map((offer: any) => ({
+    ...offer,
 
-    history: (rawLead.history ?? []).map(
-      (event: any) => ({
-        ...event,
-        _id: event._id.toString(),
-      })
-    ),
-  };
+    _id: offer._id?.toString(),
+
+    createdAt:
+      offer.createdAt instanceof Date
+        ? offer.createdAt.toISOString()
+        : String(offer.createdAt),
+
+    offerValidity:
+      offer.offerValidity instanceof Date
+        ? offer.offerValidity.toISOString()
+        : String(offer.offerValidity),
+  })),
+
+  history: (rawLead.history ?? []).map((event: any) => ({
+    ...event,
+
+    _id: event._id?.toString(),
+
+    agentId: event.agentId
+      ? event.agentId.toString()
+      : undefined,
+
+    createdAt:
+      event.createdAt instanceof Date
+        ? event.createdAt.toISOString()
+        : String(event.createdAt),
+
+    data: event.data
+      ? {
+          ...event.data,
+
+          followUpDate:
+            event.data.followUpDate instanceof Date
+              ? event.data.followUpDate.toISOString()
+              : event.data.followUpDate,
+        }
+      : undefined,
+  })),
+};
 
   const latestOffer = lead.offers?.[0];
 
