@@ -36,6 +36,15 @@ export async function getLeadDetailForUser(
     throw new Error("Invalid role");
   }
 
+  console.log("GET LEAD DETAIL DEBUG", {
+  userId: session.userId,
+  email: session.email,
+  role: session.role,
+  lenderId: session.lenderId,
+  leadId: leadId.toString(),
+  relationshipMatch,
+});
+
   const result = await db
     .collection("lead_lenders")
     .aggregate([
