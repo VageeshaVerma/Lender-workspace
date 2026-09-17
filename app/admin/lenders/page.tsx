@@ -243,7 +243,7 @@ export default function AdminLendersPage() {
       };
 
       const response = await fetch(
-        "/api/super-admin/lenders",
+        "/api/admin/lenders",
         {
           method: "POST",
           headers: {

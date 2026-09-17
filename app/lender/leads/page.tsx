@@ -926,1087 +926,1215 @@ export default function LenderLeadsPage() {
     );
   }
 
-  // --------------------------------------------------
-  // RENDER
-  // --------------------------------------------------
+// --------------------------------------------------
+// RENDER
+// --------------------------------------------------
 
-  return (
-    <main className="min-h-screen px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+return (
+  <main className="space-y-6">
+    {/* ------------------------------------------------ */}
+    {/* PAGE HEADER */}
+    {/* ------------------------------------------------ */}
 
-        {/* Header */}
+    <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[var(--success)]" />
 
-        <div className="mb-6">
-          <Link
-            href="/lender"
-            className="text-sm font-medium text-rose-500 hover:text-rose-600"
-          >
-            ← Dashboard
-          </Link>
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
+            Lending Operations
+          </span>
+        </div>
 
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-rose-500">
-                Lender Workspace
-              </p>
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+          Lead Queue
+        </h1>
 
-              <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-                Lead Queue
-              </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+          Review, filter and manage leads available
+          in your lending workspace.
+        </p>
+      </div>
 
-              <p className="mt-1 text-sm text-slate-500">
-                View and manage leads available in your queue.
-              </p>
+      <div className="flex items-center gap-3">
+        <div className="rounded-xl border border-black/[0.06] bg-white/65 px-4 py-2.5 shadow-sm">
+          <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">
+            Total leads
+          </p>
+
+          <p className="mt-0.5 text-sm font-bold text-[var(--text-primary)]">
+            {pagination.total.toLocaleString("en-IN")}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exportLoading || loading}
+          className="btn-primary"
+        >
+          {exportLoading ? (
+            "Exporting..."
+          ) : (
+            <>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 3v12" />
+                <path d="m7 10 5 5 5-5" />
+                <path d="M5 21h14" />
+              </svg>
+
+              Export
+            </>
+          )}
+        </button>
+      </div>
+    </section>
+
+    {/* ------------------------------------------------ */}
+    {/* FILTER PANEL */}
+    {/* ------------------------------------------------ */}
+
+    <section className="glass-strong overflow-hidden rounded-2xl">
+      <form
+        onSubmit={handleSearch}
+        className="p-4 sm:p-5 lg:p-6"
+      >
+        {/* Filter heading */}
+
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--soft-rose)] text-[var(--coral-dark)]">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 6h16" />
+                  <path d="M7 12h10" />
+                  <path d="M10 18h4" />
+                </svg>
+              </div>
+
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">
+                Filter leads
+              </h2>
             </div>
 
-            <div className="text-sm text-slate-500">
-              {pagination.total} total leads
+            <p className="mt-1 pl-10 text-xs text-[var(--text-muted)]">
+              Narrow down the queue using borrower and
+              application criteria.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            disabled={loading}
+            className="self-start text-xs font-semibold text-[var(--coral-dark)] transition hover:text-[var(--coral)] sm:self-auto"
+          >
+            Clear all filters
+          </button>
+        </div>
+
+        {/* -------------------------------------------- */}
+        {/* BASIC FILTERS */}
+        {/* -------------------------------------------- */}
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_190px_190px]">
+          {/* Search */}
+
+          <div>
+            <label
+              htmlFor="search"
+              className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+            >
+              Search
+            </label>
+
+            <div className="relative">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg>
+
+              <input
+                id="search"
+                type="text"
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Search borrower name or phone"
+                className="input-glass pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+
+          <div>
+            <label
+              htmlFor="status"
+              className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+            >
+              Status
+            </label>
+
+            <select
+              id="status"
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value)
+              }
+              className="input-glass cursor-pointer"
+            >
+              {statuses.map((item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item === "all"
+                    ? "All statuses"
+                    : formatStatus(item)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Assignment */}
+
+          <div>
+            <label
+              htmlFor="assignmentStatus"
+              className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+            >
+              Assignment
+            </label>
+
+            <select
+              id="assignmentStatus"
+              value={assignmentStatus}
+              onChange={(event) =>
+                setAssignmentStatus(
+                  event.target.value
+                )
+              }
+              className="input-glass cursor-pointer"
+            >
+              {assignmentStatuses.map((item) => (
+                <option
+                  key={item}
+                  value={item}
+                >
+                  {item === "all"
+                    ? "All leads"
+                    : item === "assigned"
+                    ? "Assigned"
+                    : "Unassigned"}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* -------------------------------------------- */}
+        {/* LOCATION */}
+        {/* -------------------------------------------- */}
+
+        <div className="mt-5 rounded-xl border border-black/[0.055] bg-[var(--background)]/55 p-4">
+          <div className="mb-4">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+              Location
+            </p>
+
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              Search borrowers by city or pincode.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* City */}
+
+            <div>
+              <label
+                htmlFor="city"
+                className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+              >
+                City
+              </label>
+
+              <input
+                id="city"
+                type="text"
+                value={city}
+                onChange={(event) =>
+                  setCity(event.target.value)
+                }
+                placeholder="e.g. Lucknow"
+                className="input-glass"
+              />
+            </div>
+
+            {/* Pincode */}
+
+            <div>
+              <label
+                htmlFor="pincode"
+                className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+              >
+                Pincode
+              </label>
+
+              <input
+                id="pincode"
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={pincode}
+                onChange={(event) => {
+                  const value =
+                    event.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 6);
+
+                  setPincode(value);
+                }}
+                placeholder="Enter 6-digit pincode"
+                className="input-glass"
+              />
+
+              {pincodeLoading && (
+                <p className="mt-2 flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--coral)]" />
+                  Finding city...
+                </p>
+              )}
+
+              {pincodeError && (
+                <p className="mt-2 text-[11px] text-[var(--danger)]">
+                  {pincodeError}
+                </p>
+              )}
+
+              {!pincodeLoading &&
+                !pincodeError &&
+                pincode.length === 6 &&
+                city && (
+                  <p className="mt-2 text-[11px] text-[var(--success)]">
+                    City found: {city}
+                  </p>
+                )}
             </div>
           </div>
         </div>
 
-        {/* Filters */}
+        {/* -------------------------------------------- */}
+        {/* RANGE FILTERS */}
+        {/* -------------------------------------------- */}
 
-        <section className="mb-6 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-5">
-          <form
-            onSubmit={handleSearch}
-            className="space-y-5"
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          {/* Age */}
+
+          <div className="rounded-xl border border-black/[0.055] bg-white/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-[var(--text-primary)]">
+                  Borrower Age
+                </p>
+
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  Age range
+                </p>
+              </div>
+
+              <span className="rounded-full bg-[var(--soft-rose)] px-2.5 py-1 text-[10px] font-semibold text-[var(--coral-dark)]">
+                {minAge} – {maxAge}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <div className="mb-1.5 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Minimum</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {minAge}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={MIN_AGE}
+                  max={MAX_AGE}
+                  step={1}
+                  value={minAge}
+                  onChange={(event) =>
+                    handleMinAgeChange(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full cursor-pointer accent-[var(--coral)]"
+                />
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Maximum</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {maxAge}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={MIN_AGE}
+                  max={MAX_AGE}
+                  step={1}
+                  value={maxAge}
+                  onChange={(event) =>
+                    handleMaxAgeChange(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full cursor-pointer accent-[var(--coral)]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Income */}
+
+          <div className="rounded-xl border border-black/[0.055] bg-white/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-[var(--text-primary)]">
+                  Monthly Income
+                </p>
+
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  Borrower income
+                </p>
+              </div>
+
+              <span className="max-w-[130px] truncate rounded-full bg-[var(--soft-rose)] px-2.5 py-1 text-[10px] font-semibold text-[var(--coral-dark)]">
+                {formatCurrency(minIncome)} –{" "}
+                {formatCurrency(maxIncome)}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <div className="mb-1.5 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Minimum</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {formatCurrency(minIncome)}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={MIN_INCOME}
+                  max={MAX_INCOME}
+                  step={1000}
+                  value={minIncome}
+                  onChange={(event) =>
+                    handleMinIncomeChange(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full cursor-pointer accent-[var(--coral)]"
+                />
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Maximum</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {formatCurrency(maxIncome)}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={MIN_INCOME}
+                  max={MAX_INCOME}
+                  step={1000}
+                  value={maxIncome}
+                  onChange={(event) =>
+                    handleMaxIncomeChange(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full cursor-pointer accent-[var(--coral)]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Loan amount */}
+
+          <div className="rounded-xl border border-black/[0.055] bg-white/45 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-[var(--text-primary)]">
+                  Loan Amount
+                </p>
+
+                <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                  Requested amount
+                </p>
+              </div>
+
+              <span className="max-w-[130px] truncate rounded-full bg-[var(--soft-rose)] px-2.5 py-1 text-[10px] font-semibold text-[var(--coral-dark)]">
+                {formatCurrency(minAmount)} –{" "}
+                {formatCurrency(maxAmount)}
+              </span>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              <div>
+                <div className="mb-1.5 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Minimum</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {formatCurrency(minAmount)}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={MIN_LOAN_AMOUNT}
+                  max={MAX_LOAN_AMOUNT}
+                  step={10000}
+                  value={minAmount}
+                  onChange={(event) =>
+                    handleMinAmountChange(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full cursor-pointer accent-[var(--coral)]"
+                />
+              </div>
+
+              <div>
+                <div className="mb-1.5 flex justify-between text-[10px] text-[var(--text-muted)]">
+                  <span>Maximum</span>
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {formatCurrency(maxAmount)}
+                  </span>
+                </div>
+
+                <input
+                  type="range"
+                  min={MIN_LOAN_AMOUNT}
+                  max={MAX_LOAN_AMOUNT}
+                  step={10000}
+                  value={maxAmount}
+                  onChange={(event) =>
+                    handleMaxAmountChange(
+                      Number(event.target.value)
+                    )
+                  }
+                  className="w-full cursor-pointer accent-[var(--coral)]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* -------------------------------------------- */}
+        {/* DATE + FOLLOW UP */}
+        {/* -------------------------------------------- */}
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+          <div>
+            <label
+              htmlFor="fromDate"
+              className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+            >
+              From date
+            </label>
+
+            <input
+              id="fromDate"
+              type="date"
+              value={fromDate}
+              onChange={(event) =>
+                setFromDate(event.target.value)
+              }
+              className="input-glass"
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="toDate"
+              className="mb-2 block text-xs font-semibold text-[var(--text-secondary)]"
+            >
+              To date
+            </label>
+
+            <input
+              id="toDate"
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(event) =>
+                setToDate(event.target.value)
+              }
+              className="input-glass"
+            />
+          </div>
+
+          <label className="flex min-h-[42px] cursor-pointer items-center gap-3 self-end rounded-xl border border-black/[0.055] bg-white/55 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={followUpDue}
+              onChange={(event) =>
+                setFollowUpDue(
+                  event.target.checked
+                )
+              }
+              className="h-4 w-4 rounded border-black/20 text-[var(--coral)] focus:ring-[var(--coral)]"
+            />
+
+            <span className="whitespace-nowrap text-xs font-semibold text-[var(--text-secondary)]">
+              Follow-ups due only
+            </span>
+          </label>
+        </div>
+
+        {/* -------------------------------------------- */}
+        {/* FILTER ACTIONS */}
+        {/* -------------------------------------------- */}
+
+        <div className="mt-5 flex flex-col gap-2 border-t border-black/[0.055] pt-5 sm:flex-row">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-coral flex-1 sm:flex-none"
           >
+            {loading
+              ? "Applying..."
+              : "Apply Filters"}
+          </button>
 
-            {/* Search + Status + Assignment */}
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            disabled={loading}
+            className="inline-flex min-h-10 items-center justify-center rounded-[10px] border border-black/[0.07] bg-white/65 px-4 text-sm font-semibold text-[var(--text-secondary)] transition hover:bg-white hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Reset
+          </button>
+        </div>
+      </form>
 
-            <div className="grid gap-4 lg:grid-cols-[1fr_200px_200px]">
+      {/* -------------------------------------------- */}
+      {/* EXPORT BAR */}
+      {/* -------------------------------------------- */}
 
-              {/* Search */}
+      <div className="flex flex-col gap-3 border-t border-black/[0.055] bg-[var(--background)]/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <p className="text-xs font-semibold text-[var(--text-primary)]">
+            Export current results
+          </p>
 
-              <div>
-                <label
-                  htmlFor="search"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Search
-                </label>
+          <p className="mt-0.5 text-[10px] text-[var(--text-muted)]">
+            Your CSV will use the active search and
+            filters.
+          </p>
+        </div>
 
-                <input
-                  id="search"
-                  type="text"
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(
-                      event.target.value
-                    )
-                  }
-                  placeholder="Borrower name or phone"
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                />
-              </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exportLoading}
+          className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-black/[0.07] bg-white/75 px-4 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-white hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {exportLoading
+            ? "Preparing CSV..."
+            : "Export CSV"}
+        </button>
+      </div>
+    </section>
 
-              {/* Status */}
+    {/* ------------------------------------------------ */}
+    {/* ALERTS */}
+    {/* ------------------------------------------------ */}
 
-              <div>
-                <label
-                  htmlFor="status"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Status
-                </label>
+    {exportError && (
+      <div className="status-danger rounded-xl px-4 py-3 text-xs font-medium">
+        {exportError}
+      </div>
+    )}
 
-                <select
-                  id="status"
-                  value={status}
-                  onChange={(event) =>
-                    setStatus(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                >
-                  {statuses.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item ===
-                        "all"
-                          ? "All statuses"
-                          : formatStatus(
-                              item
-                            )}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
+    {error && (
+      <div className="status-danger flex flex-col gap-3 rounded-xl px-4 py-3 text-xs font-medium sm:flex-row sm:items-center sm:justify-between">
+        <span>{error}</span>
 
-              {/* Assignment */}
+        <button
+          type="button"
+          onClick={() =>
+            fetchLeads(pagination.page)
+          }
+          className="font-bold underline underline-offset-2"
+        >
+          Retry
+        </button>
+      </div>
+    )}
 
-              <div>
-                <label
-                  htmlFor="assignmentStatus"
-                  className="mb-2 block text-sm font-medium text-slate-700"
-                >
-                  Assignment
-                </label>
+    {assignError && (
+      <div className="status-danger rounded-xl px-4 py-3 text-xs font-medium">
+        {assignError}
+      </div>
+    )}
 
-                <select
-                  id="assignmentStatus"
-                  value={
-                    assignmentStatus
-                  }
-                  onChange={(event) =>
-                    setAssignmentStatus(
-                      event.target.value
-                    )
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                >
-                  {assignmentStatuses.map(
-                    (item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item ===
-                        "all"
-                          ? "All leads"
-                          : item ===
-                            "assigned"
-                          ? "Assigned"
-                          : "Unassigned"}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-            </div>
+    {assignSuccess && (
+      <div className="status-success rounded-xl px-4 py-3 text-xs font-medium">
+        {assignSuccess}
+      </div>
+    )}
 
-            {/* Location Filters */}
+    {/* ------------------------------------------------ */}
+    {/* ASSIGNMENT TOOLBAR */}
+    {/* ------------------------------------------------ */}
 
-            <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-4">
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-slate-800">
-                  Location
-                </p>
+    {!loading && leads.length > 0 && (
+      <section className="glass flex flex-col gap-4 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-[var(--soft-rose)] px-2 text-[10px] font-bold text-[var(--coral-dark)]">
+              {selectedLeadIds.length}
+            </span>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  Filter leads by city or pincode.
-                </p>
-              </div>
+            <p className="text-sm font-bold text-[var(--text-primary)]">
+              {selectedLeadIds.length === 1
+                ? "Lead selected"
+                : "Leads selected"}
+            </p>
+          </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+            Select unassigned leads to distribute
+            them to agents using round robin.
+          </p>
+        </div>
 
-                {/* City */}
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            disabled={
+              selectableLeadIds.length === 0 ||
+              assigning
+            }
+            className="inline-flex min-h-9 items-center justify-center rounded-lg border border-black/[0.07] bg-white/70 px-4 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {allSelectableSelected
+              ? "Deselect All"
+              : "Select All"}
+          </button>
 
-                <div>
-                  <label
-                    htmlFor="city"
-                    className="mb-2 block text-sm font-medium text-slate-700"
-                  >
-                    City
-                  </label>
+          <button
+            type="button"
+            onClick={handleAssignSelected}
+            disabled={
+              selectedLeadIds.length === 0 ||
+              assigning
+            }
+            className="btn-coral min-h-9"
+          >
+            {assigning
+              ? "Assigning..."
+              : `Assign Selected${
+                  selectedLeadIds.length > 0
+                    ? ` (${selectedLeadIds.length})`
+                    : ""
+                }`}
+          </button>
+        </div>
+      </section>
+    )}
 
-                  <input
-                    id="city"
-                    type="text"
-                    value={city}
-                    onChange={(event) =>
-                      setCity(
-                        event.target.value
-                      )
-                    }
-                    placeholder="e.g. Lucknow"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                  />
-                </div>
+    {/* ------------------------------------------------ */}
+    {/* RESULTS HEADER */}
+    {/* ------------------------------------------------ */}
 
-                {/* Pincode */}
+    {!loading && !error && (
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <p className="text-sm font-bold text-[var(--text-primary)]">
+            Lead results
+          </p>
 
-                <div>
-                  <label
-                    htmlFor="pincode"
-                    className="mb-2 block text-sm font-medium text-slate-700"
-                  >
-                    Pincode
-                  </label>
+          <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+            Showing {leads.length} of{" "}
+            {pagination.total.toLocaleString("en-IN")}{" "}
+            leads
+          </p>
+        </div>
 
-                  <input
-                    id="pincode"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={pincode}
-                    onChange={(event) => {
-                      const value =
-                        event.target.value
-                          .replace(
-                            /\D/g,
-                            ""
-                          )
-                          .slice(
-                            0,
-                            6
-                          );
+        <div className="hidden items-center gap-2 text-[10px] text-[var(--text-muted)] sm:flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+          Workspace synchronized
+        </div>
+      </div>
+    )}
 
-                      setPincode(
-                        value
-                      );
-                    }}
-                    placeholder="Enter 6-digit pincode"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                  />
+    {/* ------------------------------------------------ */}
+    {/* LOADING */}
+    {/* ------------------------------------------------ */}
 
-                  {pincodeLoading && (
-                    <p className="mt-1 text-xs text-slate-500">
-                      Finding city...
-                    </p>
-                  )}
+    {loading && (
+      <section className="space-y-3">
+        {[1, 2, 3, 4].map((item) => (
+          <div
+            key={item}
+            className="lender-card animate-pulse p-4 sm:p-5"
+          >
+            <div className="flex gap-4">
+              <div className="h-5 w-5 rounded bg-black/[0.07]" />
 
-                  {pincodeError && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {pincodeError}
-                    </p>
-                  )}
-
-                  {!pincodeLoading &&
-                    !pincodeError &&
-                    pincode.length ===
-                      6 &&
-                    city && (
-                      <p className="mt-1 text-xs text-emerald-600">
-                        City found:{" "}
-                        {city}
-                      </p>
-                    )}
-                </div>
-              </div>
-            </div>
-
-            {/* Age Range */}
-
-            <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    Age
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    Filter borrowers by age range.
-                  </p>
-                </div>
-
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-600">
-                  {minAge} - {maxAge} years
-                </span>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>
-                      Minimum age
-                    </span>
-
-                    <span className="font-semibold text-slate-700">
-                      {minAge}
-                    </span>
+              <div className="flex-1">
+                <div className="flex justify-between gap-4">
+                  <div>
+                    <div className="h-4 w-36 rounded bg-black/[0.07]" />
+                    <div className="mt-2 h-3 w-24 rounded bg-black/[0.05]" />
                   </div>
 
-                  <input
-                    type="range"
-                    min={MIN_AGE}
-                    max={MAX_AGE}
-                    step={1}
-                    value={minAge}
-                    onChange={(event) =>
-                      handleMinAgeChange(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full cursor-pointer accent-rose-500"
-                  />
+                  <div className="h-5 w-24 rounded bg-black/[0.07]" />
                 </div>
 
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>
-                      Maximum age
-                    </span>
-
-                    <span className="font-semibold text-slate-700">
-                      {maxAge}
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min={MIN_AGE}
-                    max={MAX_AGE}
-                    step={1}
-                    value={maxAge}
-                    onChange={(event) =>
-                      handleMaxAgeChange(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full cursor-pointer accent-rose-500"
-                  />
+                <div className="mt-5 flex gap-2">
+                  <div className="h-5 w-16 rounded-full bg-black/[0.05]" />
+                  <div className="h-5 w-20 rounded-full bg-black/[0.05]" />
+                  <div className="h-5 w-14 rounded-full bg-black/[0.05]" />
                 </div>
               </div>
             </div>
+          </div>
+        ))}
+      </section>
+    )}
 
-            {/* Income Range */}
+    {/* ------------------------------------------------ */}
+    {/* EMPTY */}
+    {/* ------------------------------------------------ */}
 
-            <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    Monthly Income
-                  </p>
+    {!loading &&
+      !error &&
+      leads.length === 0 && (
+        <section className="lender-card flex min-h-[300px] flex-col items-center justify-center px-6 py-12 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--soft-rose)] text-[var(--coral-dark)]">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 5h16" />
+              <path d="M4 12h16" />
+              <path d="M4 19h10" />
+              <circle cx="18" cy="19" r="2" />
+            </svg>
+          </div>
 
-                  <p className="mt-1 text-xs text-slate-500">
-                    Filter borrowers by income range.
-                  </p>
-                </div>
+          <h2 className="mt-5 text-sm font-bold text-[var(--text-primary)]">
+            No leads found
+          </h2>
 
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-600">
-                  {formatCurrency(
-                    minIncome
-                  )}{" "}
-                  -{" "}
-                  {formatCurrency(
-                    maxIncome
-                  )}
-                </span>
-              </div>
+          <p className="mt-1 max-w-sm text-xs leading-5 text-[var(--text-muted)]">
+            No leads match your current search and
+            filter criteria. Try broadening your
+            filters.
+          </p>
 
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="mt-5 rounded-lg bg-[var(--soft-rose)] px-4 py-2 text-xs font-semibold text-[var(--coral-dark)] transition hover:bg-[var(--blush-light)]"
+          >
+            Clear filters
+          </button>
+        </section>
+      )}
 
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>
-                      Minimum income
-                    </span>
+    {/* ------------------------------------------------ */}
+    {/* LEAD CARDS */}
+    {/* ------------------------------------------------ */}
 
-                    <span className="font-semibold text-slate-700">
-                      {formatCurrency(
-                        minIncome
-                      )}
-                    </span>
-                  </div>
+    {!loading && leads.length > 0 && (
+      <section className="space-y-3">
+        {leads.map((lead) => {
+          const isAssigned =
+            lead.assignmentStatus !==
+            "unassigned";
 
-                  <input
-                    type="range"
-                    min={MIN_INCOME}
-                    max={MAX_INCOME}
-                    step={1000}
-                    value={minIncome}
-                    onChange={(event) =>
-                      handleMinIncomeChange(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full cursor-pointer accent-rose-500"
-                  />
-                </div>
+          const isSelected =
+            selectedLeadIds.includes(
+              lead.leadId
+            );
 
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>
-                      Maximum income
-                    </span>
+          const isFollowUpDue =
+            lead.followUpDate
+              ? new Date(
+                  lead.followUpDate
+                ) <= new Date()
+              : false;
 
-                    <span className="font-semibold text-slate-700">
-                      {formatCurrency(
-                        maxIncome
-                      )}
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min={MIN_INCOME}
-                    max={MAX_INCOME}
-                    step={1000}
-                    value={maxIncome}
-                    onChange={(event) =>
-                      handleMaxIncomeChange(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full cursor-pointer accent-rose-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Loan Amount Range */}
-
-            <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    Loan Amount
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    Filter leads by requested loan amount.
-                  </p>
-                </div>
-
-                <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-600">
-                  {formatCurrency(
-                    minAmount
-                  )}{" "}
-                  -{" "}
-                  {formatCurrency(
-                    maxAmount
-                  )}
-                </span>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>
-                      Minimum amount
-                    </span>
-
-                    <span className="font-semibold text-slate-700">
-                      {formatCurrency(
-                        minAmount
-                      )}
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min={
-                      MIN_LOAN_AMOUNT
-                    }
-                    max={
-                      MAX_LOAN_AMOUNT
-                    }
-                    step={10000}
-                    value={minAmount}
-                    onChange={(event) =>
-                      handleMinAmountChange(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full cursor-pointer accent-rose-500"
-                  />
-                </div>
-
-                <div>
-                  <div className="mb-2 flex justify-between text-xs text-slate-500">
-                    <span>
-                      Maximum amount
-                    </span>
-
-                    <span className="font-semibold text-slate-700">
-                      {formatCurrency(
-                        maxAmount
-                      )}
-                    </span>
-                  </div>
-
-                  <input
-                    type="range"
-                    min={
-                      MIN_LOAN_AMOUNT
-                    }
-                    max={
-                      MAX_LOAN_AMOUNT
-                    }
-                    step={10000}
-                    value={maxAmount}
-                    onChange={(event) =>
-                      handleMaxAmountChange(
-                        Number(
-                          event.target.value
-                        )
-                      )
-                    }
-                    className="w-full cursor-pointer accent-rose-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Date Filters */}
-
-            <div>
-              <p className="mb-2 text-sm font-medium text-slate-700">
-                Application date
-              </p>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-
-                <div>
-                  <label
-                    htmlFor="fromDate"
-                    className="mb-2 block text-xs font-medium text-slate-500"
-                  >
-                    From date
-                  </label>
-
-                  <input
-                    id="fromDate"
-                    type="date"
-                    value={fromDate}
-                    onChange={(event) =>
-                      setFromDate(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="toDate"
-                    className="mb-2 block text-xs font-medium text-slate-500"
-                  >
-                    To date
-                  </label>
-
-                  <input
-                    id="toDate"
-                    type="date"
-                    value={toDate}
-                    min={
-                      fromDate ||
-                      undefined
-                    }
-                    onChange={(event) =>
-                      setToDate(
-                        event.target.value
-                      )
-                    }
-                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Follow Up */}
-
-            <div className="flex items-center">
-              <label className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={followUpDue}
-                  onChange={(event) =>
-                    setFollowUpDue(
-                      event.target.checked
-                    )
-                  }
-                  className="h-4 w-4 rounded border-slate-300 text-rose-500 focus:ring-rose-400"
-                />
-
-                Show only follow-ups due
-              </label>
-            </div>
-
-            {/* Buttons */}
-
-            <div className="flex flex-col gap-3 border-t border-slate-200/60 pt-5 sm:flex-row">
-              <button
-                type="submit"
-                disabled={loading}
-                className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading
-                  ? "Loading..."
-                  : "Apply Filters"}
-              </button>
-
-              <button
-                type="button"
-                onClick={
-                  handleClearFilters
+          return (
+            <article
+              key={lead._id}
+              className={`
+                lender-card group relative
+                overflow-hidden
+                p-4 sm:p-5
+                ${
+                  isSelected
+                    ? "border-[var(--coral)]/30 ring-2 ring-[var(--coral)]/10"
+                    : ""
                 }
-                disabled={loading}
-                className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              `}
+            >
+              {/* Selected indicator */}
+
+              {isSelected && (
+                <div className="absolute inset-y-0 left-0 w-1 bg-[var(--coral)]" />
+              )}
+
+              <div className="flex gap-3 sm:gap-4">
+                {/* Checkbox */}
+
+                {!isAssigned && (
+                  <div className="pt-1">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() =>
+                        toggleLeadSelection(
+                          lead.leadId
+                        )
+                      }
+                      disabled={assigning}
+                      aria-label={`Select ${lead.borrower.borrowerName}`}
+                      className="h-4 w-4 cursor-pointer rounded border-black/20 text-[var(--coral)] focus:ring-[var(--coral)] disabled:cursor-not-allowed"
+                    />
+                  </div>
+                )}
+
+                {/* Lead */}
+
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/lender/leads/${lead.leadId}`}
+                    className="block"
+                  >
+                    {/* Top */}
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="truncate text-sm font-bold text-[var(--text-primary)] transition group-hover:text-[var(--coral-dark)] sm:text-base">
+                            {lead.borrower.borrowerName}
+                          </h2>
+
+                          <span
+                            className={`
+                              rounded-full px-2 py-0.5
+                              text-[10px] font-semibold capitalize
+                              ${
+                                lead.status ===
+                                "approved"
+                                  ? "status-success"
+                                  : lead.status ===
+                                    "rejected"
+                                  ? "status-danger"
+                                  : lead.status ===
+                                    "disbursed"
+                                  ? "status-info"
+                                  : "status-warning"
+                              }
+                            `}
+                          >
+                            {formatStatus(
+                              lead.status
+                            )}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 text-xs text-[var(--text-muted)]">
+                          {lead.borrower.phone}
+                        </p>
+
+                        <p className="mt-2 text-xs font-medium text-[var(--text-secondary)]">
+                          {lead.borrower.loanPurpose}
+                        </p>
+                      </div>
+
+                      {/* Amount */}
+
+                      <div className="shrink-0 sm:text-right">
+                        <p className="text-base font-bold tracking-tight text-[var(--text-primary)] sm:text-lg">
+                          {formatCurrency(
+                            lead.borrower.loanAmount
+                          )}
+                        </p>
+
+                        <p className="mt-1 text-[10px] text-[var(--text-muted)]">
+                          Requested amount
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* -------------------------------- */}
+                    {/* METADATA */}
+                    {/* -------------------------------- */}
+
+                    <div className="mt-4 flex flex-wrap gap-2 border-t border-black/[0.055] pt-3">
+                      {lead.borrower.creditScore !==
+                        undefined && (
+                        <span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
+                          Credit{" "}
+                          <strong className="font-semibold text-[var(--text-primary)]">
+                            {
+                              lead.borrower
+                                .creditScore
+                            }
+                          </strong>
+                        </span>
+                      )}
+
+                      {lead.borrower.income !==
+                        undefined && (
+                        <span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
+                          Income{" "}
+                          <strong className="font-semibold text-[var(--text-primary)]">
+                            {formatCurrency(
+                              lead.borrower
+                                .income
+                            )}
+                          </strong>
+                        </span>
+                      )}
+
+                      {lead.borrower.dateOfBirth && (
+                        <span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
+                          DOB{" "}
+                          {formatDate(
+                            lead.borrower
+                              .dateOfBirth
+                          )}
+                        </span>
+                      )}
+
+                      {lead.borrower.city && (
+                        <span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
+                          {lead.borrower.city}
+                          {lead.borrower.state
+                            ? `, ${lead.borrower.state}`
+                            : ""}
+                        </span>
+                      )}
+
+                      {lead.borrower.pincode && (
+                        <span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[10px] font-medium text-[var(--text-secondary)]">
+                          PIN{" "}
+                          {lead.borrower.pincode}
+                        </span>
+                      )}
+
+                      {lead.assignmentStatus && (
+                        <span
+                          className={`
+                            rounded-full px-2.5 py-1
+                            text-[10px] font-medium capitalize
+                            ${
+                              lead.assignmentStatus ===
+                              "unassigned"
+                                ? "status-warning"
+                                : "status-success"
+                            }
+                          `}
+                        >
+                          {formatStatus(
+                            lead.assignmentStatus
+                          )}
+                        </span>
+                      )}
+
+                      {lead.followUpDate && (
+                        <span
+                          className={`
+                            rounded-full px-2.5 py-1
+                            text-[10px] font-medium
+                            ${
+                              isFollowUpDue
+                                ? "status-danger"
+                                : "status-warning"
+                            }
+                          `}
+                        >
+                          {isFollowUpDue
+                            ? "Follow-up due"
+                            : "Follow-up"}{" "}
+                          ·{" "}
+                          {formatDate(
+                            lead.followUpDate
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* -------------------------------- */}
+                    {/* FOOTER */}
+                    {/* -------------------------------- */}
+
+                    <div className="mt-4 flex items-center justify-between border-t border-black/[0.055] pt-3">
+                      <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                        <span>
+                          Applied{" "}
+                          {formatDate(
+                            lead.createdAt
+                          )}
+                        </span>
+
+                        <span className="h-1 w-1 rounded-full bg-black/15" />
+
+                        <span>
+                          ID {lead.leadId}
+                        </span>
+                      </div>
+
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-secondary)] transition group-hover:text-[var(--coral-dark)]">
+                        View details
+
+                        <svg
+                          width="13"
+                          height="13"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M5 12h14" />
+                          <path d="m13 6 6 6-6 6" />
+                        </svg>
+                      </span>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </section>
+    )}
+
+    {/* ------------------------------------------------ */}
+    {/* PAGINATION */}
+    {/* ------------------------------------------------ */}
+
+    {!loading &&
+      pagination.totalPages > 0 && (
+        <section className="glass flex flex-col gap-3 rounded-2xl p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <p className="px-1 text-[11px] text-[var(--text-muted)]">
+            Page{" "}
+            <strong className="font-semibold text-[var(--text-secondary)]">
+              {pagination.page}
+            </strong>{" "}
+            of{" "}
+            <strong className="font-semibold text-[var(--text-secondary)]">
+              {pagination.totalPages}
+            </strong>
+          </p>
+
+          <div className="flex w-full gap-2 sm:w-auto">
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={
+                pagination.page <= 1 ||
+                assigning
+              }
+              className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-black/[0.07] bg-white/70 px-4 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35 sm:flex-none"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                Clear Filters
-              </button>
-            </div>
-          </form>
+                <path d="m15 18-6-6 6-6" />
+              </svg>
 
-          {/* Export */}
-
-          <div className="mt-5 flex flex-col gap-3 border-t border-slate-200/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-800">
-                Export leads
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Export leads using your current search and filters.
-              </p>
-            </div>
+              Previous
+            </button>
 
             <button
               type="button"
-              onClick={
-                handleExport
-              }
+              onClick={handleNext}
               disabled={
-                exportLoading
+                pagination.page >=
+                  pagination.totalPages ||
+                assigning
               }
-              className="inline-flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-black/[0.07] bg-white/70 px-4 text-xs font-semibold text-[var(--text-secondary)] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-35 sm:flex-none"
             >
-              {exportLoading
-                ? "Exporting..."
-                : "Export CSV"}
+              Next
+
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m9 18 6-6-6-6" />
+              </svg>
             </button>
           </div>
         </section>
+      )}
+  </main>
+);
 
-        {/* Export Error */}
 
-        {exportError && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {exportError}
-          </div>
-        )}
-
-        {/* General Error */}
-
-        {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-
-            <button
-              type="button"
-              onClick={() =>
-                fetchLeads(
-                  pagination.page
-                )
-              }
-              className="ml-2 font-semibold underline"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* Assignment Error */}
-
-        {assignError && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {assignError}
-          </div>
-        )}
-
-        {/* Assignment Success */}
-
-        {assignSuccess && (
-          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-            {assignSuccess}
-          </div>
-        )}
-
-        {/* Loading */}
-
-        {loading && (
-          <div className="grid gap-4">
-            {[1, 2, 3].map(
-              (item) => (
-                <div
-                  key={item}
-                  className="animate-pulse rounded-2xl border border-white/60 bg-white/70 p-5 shadow-sm"
-                >
-                  <div className="h-5 w-40 rounded bg-slate-200" />
-
-                  <div className="mt-3 h-4 w-28 rounded bg-slate-200" />
-
-                  <div className="mt-5 h-4 w-full rounded bg-slate-200" />
-                </div>
-              )
-            )}
-          </div>
-        )}
-
-        {/* Empty */}
-
-        {!loading &&
-          !error &&
-          leads.length === 0 && (
-            <div className="rounded-2xl border border-white/60 bg-white/70 p-10 text-center shadow-sm backdrop-blur">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-xl">
-                📋
-              </div>
-
-              <h2 className="mt-4 font-semibold text-slate-900">
-                No leads found
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Try changing your search or filters.
-              </p>
-
-              <button
-                type="button"
-                onClick={
-                  handleClearFilters
-                }
-                className="mt-4 rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-100"
-              >
-                Clear filters
-              </button>
-            </div>
-          )}
-
-        {/* Lead Selection Toolbar */}
-
-        {!loading &&
-          leads.length > 0 && (
-            <section className="mb-4 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur sm:p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    {
-                      selectedLeadIds.length
-                    }{" "}
-                    lead
-                    {selectedLeadIds.length ===
-                    1
-                      ? ""
-                      : "s"}{" "}
-                    selected
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    Select eligible leads and assign them to agents using round robin.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={
-                      toggleSelectAll
-                    }
-                    disabled={
-                      selectableLeadIds.length ===
-                        0 ||
-                      assigning
-                    }
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {allSelectableSelected
-                      ? "Deselect All"
-                      : "Select All"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={
-                      handleAssignSelected
-                    }
-                    disabled={
-                      selectedLeadIds.length ===
-                        0 ||
-                      assigning
-                    }
-                    className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {assigning
-                      ? "Assigning..."
-                      : `Assign Selected${
-                          selectedLeadIds.length >
-                          0
-                            ? ` (${selectedLeadIds.length})`
-                            : ""
-                        }`}
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
-
-        {/* Lead Cards */}
-
-        {!loading &&
-          leads.length > 0 && (
-            <section className="grid gap-4">
-              {leads.map(
-                (lead) => {
-                  const isAssigned =
-                    lead.assignmentStatus !==
-                    "unassigned";
-
-                  const isSelected =
-                    selectedLeadIds.includes(
-                      lead.leadId
-                    );
-
-                  return (
-                    <div
-                      key={lead._id}
-                      className={`rounded-2xl border border-white/60 bg-white/70 p-5 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:shadow-md ${
-                        isSelected
-                          ? "ring-2 ring-rose-200"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex gap-4">
-
-                        {/* Checkbox */}
-
-                        {!isAssigned && (
-                          <div className="pt-1">
-                            <input
-                              type="checkbox"
-                              checked={
-                                isSelected
-                              }
-                              onChange={() =>
-                                toggleLeadSelection(
-                                  lead.leadId
-                                )
-                              }
-                              disabled={
-                                assigning
-                              }
-                              aria-label={`Select ${lead.borrower.borrowerName}`}
-                              className="h-5 w-5 cursor-pointer rounded border-slate-300 text-rose-500 focus:ring-rose-400 disabled:cursor-not-allowed"
-                            />
-                          </div>
-                        )}
-
-                        {/* Card Content */}
-
-                        <div className="min-w-0 flex-1">
-                          <Link
-                            href={`/lender/leads/${lead.leadId}`}
-                            className="block"
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-
-                              <div>
-                                <h2 className="text-lg font-bold text-slate-900">
-                                  {
-                                    lead
-                                      .borrower
-                                      .borrowerName
-                                  }
-                                </h2>
-
-                                <p className="mt-1 text-sm text-slate-500">
-                                  {
-                                    lead
-                                      .borrower
-                                      .phone
-                                  }
-                                </p>
-
-                                <p className="mt-2 text-sm text-slate-600">
-                                  {
-                                    lead
-                                      .borrower
-                                      .loanPurpose
-                                  }
-                                </p>
-                              </div>
-
-                              <div className="sm:text-right">
-                                <p className="text-lg font-bold text-slate-900">
-                                  {formatCurrency(
-                                    lead
-                                      .borrower
-                                      .loanAmount
-                                  )}
-                                </p>
-
-                                <span className="mt-2 inline-flex rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold capitalize text-rose-600">
-                                  {formatStatus(
-                                    lead.status
-                                  )}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Metadata */}
-
-                            <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200/60 pt-3">
-
-                              {lead.borrower.creditScore !==
-                                undefined && (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                                  Credit{" "}
-                                  {
-                                    lead
-                                      .borrower
-                                      .creditScore
-                                  }
-                                </span>
-                              )}
-
-                              {lead.borrower.income !==
-                                undefined && (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                                  Income{" "}
-                                  {formatCurrency(
-                                    lead
-                                      .borrower
-                                      .income
-                                  )}
-                                </span>
-                              )}
-
-                              {lead.borrower.dateOfBirth && (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                                  DOB{" "}
-                                  {formatDate(
-                                    lead
-                                      .borrower
-                                      .dateOfBirth
-                                  )}
-                                </span>
-                              )}
-
-                              {lead.borrower.city && (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                                  {
-                                    lead
-                                      .borrower
-                                      .city
-                                  }
-                                </span>
-                              )}
-
-                              {lead.borrower.pincode && (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                                  PIN{" "}
-                                  {
-                                    lead
-                                      .borrower
-                                      .pincode
-                                  }
-                                </span>
-                              )}
-
-                              {lead.assignmentStatus && (
-                                <span
-                                  className={`rounded-full px-3 py-1 text-xs capitalize ${
-                                    lead.assignmentStatus ===
-                                    "unassigned"
-                                      ? "bg-amber-50 text-amber-600"
-                                      : "bg-emerald-50 text-emerald-600"
-                                  }`}
-                                >
-                                  {formatStatus(
-                                    lead.assignmentStatus
-                                  )}
-                                </span>
-                              )}
-
-                              {lead.followUpDate && (
-                                <span
-                                  className={`rounded-full px-3 py-1 text-xs ${
-                                    new Date(
-                                      lead.followUpDate
-                                    ) <=
-                                    new Date()
-                                      ? "bg-red-50 text-red-600"
-                                      : "bg-amber-50 text-amber-600"
-                                  }`}
-                                >
-                                  Follow-up{" "}
-                                  {formatDate(
-                                    lead.followUpDate
-                                  )}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Footer */}
-
-                            <div className="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-3 text-xs text-slate-500">
-                              <span>
-                                Applied{" "}
-                                {formatDate(
-                                  lead.createdAt
-                                )}
-                              </span>
-
-                              <span className="font-semibold text-rose-500">
-                                View details →
-                              </span>
-                            </div>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-              )}
-            </section>
-          )}
-
-        {/* Pagination */}
-
-        {!loading &&
-          pagination.totalPages >
-            0 && (
-            <div className="mt-6 flex items-center justify-between rounded-2xl border border-white/60 bg-white/70 p-4 shadow-sm backdrop-blur">
-              <button
-                type="button"
-                onClick={
-                  handlePrevious
-                }
-                disabled={
-                  pagination.page <=
-                    1 ||
-                  assigning
-                }
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ← Previous
-              </button>
-
-              <p className="text-sm text-slate-500">
-                Page{" "}
-                {pagination.page}{" "}
-                of{" "}
-                {pagination.totalPages}
-              </p>
-
-              <button
-                type="button"
-                onClick={
-                  handleNext
-                }
-                disabled={
-                  pagination.page >=
-                    pagination.totalPages ||
-                  assigning
-                }
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Next →
-              </button>
-            </div>
-          )}
-      </div>
-    </main>
-  );
 }

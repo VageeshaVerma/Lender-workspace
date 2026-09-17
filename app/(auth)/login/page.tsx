@@ -105,16 +105,6 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-
-        <div className="mt-6 text-center text-sm text-[var(--text-secondary)]">
-          New customer?{" "}
-          <Link
-            href="/signup"
-            className="font-semibold text-[var(--coral-dark)] hover:underline"
-          >
-            Create customer account
-          </Link>
-        </div>
       </GlassCard>
     </main>
   );

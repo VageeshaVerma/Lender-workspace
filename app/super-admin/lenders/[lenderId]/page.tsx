@@ -15,9 +15,14 @@ type Lender = {
   minIncome: number | null;
   minCreditScore_exclusive: number | null;
   maxCreditScore_inclusive: number | null;
-  employmentTypes?: string[];
-  supportedPincodes?: string[];
+
+  // Can currently be either an array or a string
+  // depending on the existing MongoDB document.
+  employmentTypes: string[] | string | null;
+  supportedPincodes: string[] | string | null;
+
   maxLeadsPerDay: number | null;
+
   agents: {
     _id: string;
     name: string;
@@ -25,6 +30,7 @@ type Lender = {
     isActive: boolean;
     createdAt: string;
   }[];
+
   leadCount: number;
 };
 
@@ -33,12 +39,48 @@ type ApiResponse = {
   error?: string;
 };
 
+/**
+ * Converts lender list-like fields into a consistent string array.
+ *
+ * Supports:
+ * - ["salaried", "self_employed"]
+ * - "salaried+self_employed"
+ * - "salaried,self_employed"
+ * - "ALL"
+ * - null / undefined
+ */
+function normalizeList(
+  value: string[] | string | null | undefined
+): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(/[+,]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 export default function LenderDetailsPage() {
   const params = useParams();
+
   const lenderId = params.lenderId as string;
-  const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
+
+  const [deletingAgentId, setDeletingAgentId] = useState<string | null>(
+    null
+  );
+
   const [lender, setLender] = useState<Lender | null>(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -83,56 +125,56 @@ export default function LenderDetailsPage() {
   }, [lenderId]);
 
   async function handleDeleteAgent(agentId: string) {
-  const confirmed = window.confirm(
-    "Are you sure you want to remove this agent?"
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  try {
-    setDeletingAgentId(agentId);
-
-    const response = await fetch(
-      `/api/super-admin/lenders/${lenderId}/agents/${agentId}`,
-      {
-        method: "DELETE",
-      }
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this agent?"
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.error || "Failed to remove agent"
-      );
+    if (!confirmed) {
+      return;
     }
 
-    setLender((currentLender) => {
-      if (!currentLender) {
-        return currentLender;
+    try {
+      setDeletingAgentId(agentId);
+
+      const response = await fetch(
+        `/api/super-admin/lenders/${lenderId}/agents/${agentId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Failed to remove agent"
+        );
       }
 
-      return {
-        ...currentLender,
-        agents: currentLender.agents.filter(
-          (agent) => agent._id !== agentId
-        ),
-      };
-    });
-  } catch (error) {
-    console.error(error);
+      setLender((currentLender) => {
+        if (!currentLender) {
+          return currentLender;
+        }
 
-    window.alert(
-      error instanceof Error
-        ? error.message
-        : "Failed to remove agent"
-    );
-  } finally {
-    setDeletingAgentId(null);
+        return {
+          ...currentLender,
+          agents: currentLender.agents.filter(
+            (agent) => agent._id !== agentId
+          ),
+        };
+      });
+    } catch (error) {
+      console.error(error);
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to remove agent"
+      );
+    } finally {
+      setDeletingAgentId(null);
+    }
   }
-}
 
   if (loading) {
     return (
@@ -140,6 +182,7 @@ export default function LenderDetailsPage() {
         <div className="mx-auto max-w-6xl">
           <div className="animate-pulse">
             <div className="h-8 w-64 rounded-lg bg-white" />
+
             <div className="mt-8 h-48 rounded-3xl bg-white" />
           </div>
         </div>
@@ -171,6 +214,14 @@ export default function LenderDetailsPage() {
       </main>
     );
   }
+
+  const employmentTypes = normalizeList(
+    lender.employmentTypes
+  );
+
+  const supportedPincodes = normalizeList(
+    lender.supportedPincodes
+  );
 
   return (
     <main className="min-h-screen bg-[#fff8f5] px-5 py-8">
@@ -209,6 +260,7 @@ export default function LenderDetailsPage() {
         </div>
 
         {/* Overview */}
+
         <section className="mt-8 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900">
             Overview
@@ -248,6 +300,7 @@ export default function LenderDetailsPage() {
         </section>
 
         {/* Eligibility Rules */}
+
         <section className="mt-6 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900">
             Eligibility Rules
@@ -255,6 +308,7 @@ export default function LenderDetailsPage() {
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {/* Age */}
+
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-sm text-slate-500">
                 Age Range
@@ -267,6 +321,7 @@ export default function LenderDetailsPage() {
             </div>
 
             {/* Income */}
+
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-sm text-slate-500">
                 Minimum Income
@@ -283,6 +338,7 @@ export default function LenderDetailsPage() {
             </div>
 
             {/* Credit Score */}
+
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-sm text-slate-500">
                 Credit Score
@@ -295,6 +351,7 @@ export default function LenderDetailsPage() {
             </div>
 
             {/* Max Leads */}
+
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-sm text-slate-500">
                 Max Leads Per Day
@@ -306,15 +363,15 @@ export default function LenderDetailsPage() {
             </div>
 
             {/* Employment Types */}
+
             <div className="rounded-2xl bg-slate-50 p-4 sm:col-span-2">
               <p className="text-sm text-slate-500">
                 Employment Types
               </p>
 
               <div className="mt-2 flex flex-wrap gap-2">
-                {Array.isArray(lender.employmentTypes) &&
-                lender.employmentTypes.length > 0 ? (
-                  lender.employmentTypes.map((type) => (
+                {employmentTypes.length > 0 ? (
+                  employmentTypes.map((type) => (
                     <span
                       key={type}
                       className="rounded-full bg-rose-50 px-3 py-1 text-sm font-medium text-rose-700"
@@ -331,15 +388,15 @@ export default function LenderDetailsPage() {
             </div>
 
             {/* Supported Pincodes */}
+
             <div className="rounded-2xl bg-slate-50 p-4 sm:col-span-2 lg:col-span-3">
               <p className="text-sm text-slate-500">
                 Supported Pincodes
               </p>
 
               <div className="mt-2 flex flex-wrap gap-2">
-                {Array.isArray(lender.supportedPincodes) &&
-                lender.supportedPincodes.length > 0 ? (
-                  lender.supportedPincodes.map((pincode) => (
+                {supportedPincodes.length > 0 ? (
+                  supportedPincodes.map((pincode) => (
                     <span
                       key={pincode}
                       className="rounded-full bg-slate-200 px-3 py-1 text-sm font-medium text-slate-700"
@@ -356,97 +413,106 @@ export default function LenderDetailsPage() {
             </div>
           </div>
         </section>
+
         {/* Lender Agents */}
-<section className="mt-6 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
-  <div className="flex items-center justify-between">
-    <div>
-      <h2 className="text-lg font-bold text-slate-900">
-        Lender Agents
-      </h2>
 
-      <p className="mt-1 text-sm text-slate-500">
-        Agents assigned to {lender.name}
-      </p>
-    </div>
+        <section className="mt-6 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Lender Agents
+              </h2>
 
-    <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-700">
-      {lender.agents?.length ?? 0} Agents
-    </span>
-  </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Agents assigned to {lender.name}
+              </p>
+            </div>
 
-  <div className="mt-5 grid gap-4 sm:grid-cols-2">
-    {lender.agents?.length > 0 ? (
-  lender.agents.map((agent) => (
-    <div
-      key={agent._id}
-      className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-slate-900">
-            {agent.name}
-          </h3>
+            <span className="rounded-full bg-rose-50 px-3 py-1 text-sm font-semibold text-rose-700">
+              {lender.agents?.length ?? 0} Agents
+            </span>
+          </div>
 
-          <p className="mt-1 text-sm text-slate-500">
-            {agent.email}
-          </p>
-        </div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            {lender.agents?.length > 0 ? (
+              lender.agents.map((agent) => (
+                <div
+                  key={agent._id}
+                  className="rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">
+                        {agent.name}
+                      </h3>
 
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-            agent.isActive
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-slate-200 text-slate-600"
-          }`}
-        >
-          {agent.isActive ? "Active" : "Inactive"}
-        </span>
-      </div>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {agent.email}
+                      </p>
+                    </div>
 
-      <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3">
-        <div>
-          <p className="text-xs text-slate-400">
-            Joined
-          </p>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        agent.isActive
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {agent.isActive
+                        ? "Active"
+                        : "Inactive"}
+                    </span>
+                  </div>
 
-          <p className="mt-1 text-sm font-medium text-slate-700">
-            {new Date(agent.createdAt).toLocaleDateString(
-              "en-IN",
-              {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              }
+                  <div className="mt-4 flex items-center justify-between border-t border-slate-200 pt-3">
+                    <div>
+                      <p className="text-xs text-slate-400">
+                        Joined
+                      </p>
+
+                      <p className="mt-1 text-sm font-medium text-slate-700">
+                        {new Date(
+                          agent.createdAt
+                        ).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        )}
+                      </p>
+                    </div>
+
+                    {agent.isActive && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteAgent(agent._id)
+                        }
+                        disabled={
+                          deletingAgentId === agent._id
+                        }
+                        className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {deletingAgentId === agent._id
+                          ? "Removing..."
+                          : "Remove"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl bg-slate-50 p-6 sm:col-span-2">
+                <p className="text-center text-sm text-slate-400">
+                  No agents found for this lender.
+                </p>
+              </div>
             )}
-          </p>
-        </div>
-
-        {agent.isActive && (
-          <button
-            type="button"
-            onClick={() => handleDeleteAgent(agent._id)}
-            disabled={deletingAgentId === agent._id}
-            className="rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {deletingAgentId === agent._id
-              ? "Removing..."
-              : "Remove"}
-          </button>
-        )}
-      </div>
-    </div>
-  ))
-) : (
-  <div className="rounded-2xl bg-slate-50 p-6 sm:col-span-2">
-    <p className="text-center text-sm text-slate-400">
-      No agents found for this lender.
-    </p>
-  </div>
-)}
-  </div>
-</section>
+          </div>
+        </section>
       </div>
     </main>
   );
 }
-
