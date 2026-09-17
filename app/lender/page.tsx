@@ -59,10 +59,36 @@ async function getLeads(): Promise<LeadsResponse> {
   );
 
   if (!response.ok) {
-    throw new Error("Failed to fetch leads");
-  }
+  const errorText = await response.text();
 
-  return response.json();
+  console.error(
+    "Failed to fetch leads:",
+    response.status,
+    errorText.slice(0, 500)
+  );
+
+  throw new Error(
+    `Failed to fetch leads: ${response.status}`
+  );
+}
+
+const contentType = response.headers.get("content-type");
+
+if (!contentType?.includes("application/json")) {
+  const responseText = await response.text();
+
+  console.error(
+    "Expected JSON but received:",
+    contentType,
+    responseText.slice(0, 500)
+  );
+
+  throw new Error(
+    "Leads API returned a non-JSON response"
+  );
+}
+
+return response.json();
 }
 
 function formatCurrency(amount: number) {
