@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ObjectId } from "mongodb";
 
 import { getSession } from "@/lib/auth/session";
+import { getLeadDetailForUser } from "@/lib/db/leadDetails";
+
 import LeadActions from "./LeadActions";
 
 type Offer = {
@@ -122,50 +124,10 @@ function formatLabel(value?: string) {
   }
 
   return value
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
+  .replaceAll("_", " ")
+  .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-async function getLeadDetail(
-  leadId: string
-): Promise<LeadDetail> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("session");
-
-  const baseUrl =
-  process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : process.env.NEXT_PUBLIC_APP_URL ||
-      "http://localhost:3000";
-
-  const response = await fetch(
-    `${baseUrl}/api/leads/${leadId}`,
-    {
-      headers: {
-        Cookie: sessionCookie
-          ? `session=${sessionCookie.value}`
-          : "",
-      },
-      cache: "no-store",
-    }
-  );
-
-  if (response.status === 401) {
-    redirect("/login");
-  }
-
-  if (response.status === 404) {
-    throw new Error("Lead not found");
-  }
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch lead");
-  }
-
-  const data = await response.json();
-
-  return data.lead;
-}
 
 export default async function LeadDetailPage({
   params,
@@ -185,17 +147,57 @@ export default async function LeadDetailPage({
 
   const { leadId } = await params;
 
-  let lead: LeadDetail;
-
-  try {
-    lead = await getLeadDetail(leadId);
-  } catch {
+  /*
+   * Validate the URL parameter before converting it
+   * into a MongoDB ObjectId.
+   */
+  if (!ObjectId.isValid(leadId)) {
     return (
       <main className="min-h-screen px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-3xl">
           <Link
             href="/lender/leads"
-            className="text-sm font-medium text-rose-500"
+            className="text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--coral-dark)]"
+          >
+            ← Back to Lead Queue
+          </Link>
+
+          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
+            <h1 className="text-lg font-bold text-red-800">
+              Invalid Lead ID
+            </h1>
+
+            <p className="mt-2 text-sm text-red-600">
+              The lead ID in the URL is not valid.
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const leadObjectId = new ObjectId(leadId);
+
+  /*
+   * This is a Server Component, so we directly call the
+   * database authorization function instead of making an
+   * HTTP request to our own API.
+   *
+   * getLeadDetailForUser() also enforces lender/agent
+   * authorization through lead_lenders.
+   */
+  const rawLead = await getLeadDetailForUser(
+    session,
+    leadObjectId
+  );
+
+  if (!rawLead) {
+    return (
+      <main className="min-h-screen px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-3xl">
+          <Link
+            href="/lender/leads"
+            className="text-sm font-medium text-[var(--text-secondary)] transition hover:text-[var(--coral-dark)]"
           >
             ← Back to Lead Queue
           </Link>
@@ -213,6 +215,38 @@ export default async function LeadDetailPage({
       </main>
     );
   }
+
+  /*
+   * MongoDB returns ObjectId values.
+   * The UI types use strings, so normalize the IDs here.
+   */
+  const lead: LeadDetail = {
+    ...rawLead,
+    _id: rawLead._id.toString(),
+    leadId: rawLead.leadId.toString(),
+    assignedAgentId: rawLead.assignedAgentId
+      ? rawLead.assignedAgentId.toString()
+      : null,
+
+    borrower: {
+      ...rawLead.borrower,
+      id: rawLead.borrower.id.toString(),
+    },
+
+    offers: (rawLead.offers ?? []).map(
+      (offer: any) => ({
+        ...offer,
+        _id: offer._id.toString(),
+      })
+    ),
+
+    history: (rawLead.history ?? []).map(
+      (event: any) => ({
+        ...event,
+        _id: event._id.toString(),
+      })
+    ),
+  };
 
   const latestOffer = lead.offers?.[0];
 
