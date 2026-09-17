@@ -250,11 +250,13 @@ export default async function LenderDashboardPage() {
   }
 
   if (
-    session.role !== "lender_admin" &&
-    session.role !== "lender_agent"
-  ) {
-    redirect("/");
-  }
+  session.role !== "lender_admin" &&
+  session.role !== "lender_agent" &&
+  session.role !== "ops_admin" &&
+  session.role !== "super_admin"
+) {
+  redirect("/");
+}
 
   const data = await getLeads();
   const leads = data.leads;
